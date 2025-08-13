@@ -1,0 +1,58 @@
+/**
+ * Example test file structure (rename to .test.ts to use)
+ * 
+ * Unit Test Example:
+ * Place in: src/tests/unit/services/auth.service.test.ts
+ */
+
+import { describe, it, expect, beforeEach, afterEach, jest } from '@jest/globals';
+import { createTestApp, testPrisma, testData } from '../utils';
+
+describe('Example Unit Test', () => {
+  beforeEach(() => {
+    // Setup before each test
+  });
+
+  afterEach(() => {
+    // Cleanup after each test
+    jest.clearAllMocks();
+  });
+
+  it('should do something', () => {
+    // Arrange
+    const input = 'test';
+    
+    // Act
+    const result = input.toUpperCase();
+    
+    // Assert
+    expect(result).toBe('TEST');
+  });
+});
+
+/**
+ * Integration Test Example:
+ * Place in: src/tests/integration/auth.test.ts
+ */
+
+describe('Example Integration Test', () => {
+  const app = createTestApp();
+
+  beforeAll(async () => {
+    await testPrisma.$connect();
+  });
+
+  afterAll(async () => {
+    await testPrisma.$disconnect();
+  });
+
+  beforeEach(async () => {
+    // Clean database before each test
+  });
+
+  it('GET /health should return 200', async () => {
+    // Integration test using supertest
+    // const response = await request(app).get('/health');
+    // expect(response.status).toBe(200);
+  });
+});

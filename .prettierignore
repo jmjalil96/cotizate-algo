@@ -1,0 +1,8 @@
+dist
+node_modules
+*.min.js
+coverage
+.env*
+prisma/migrations
+pnpm-lock.yaml
+package-lock.json
