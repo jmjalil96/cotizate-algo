@@ -9,6 +9,7 @@ WORKDIR /app
 # Copy package files
 COPY package*.json ./
 COPY tsconfig.json ./
+COPY nodemon.json ./
 
 # Install all dependencies (including dev)
 RUN npm ci

@@ -1,11 +1,10 @@
 import { Router } from 'express';
+import authRoutes from '@/modules/auth/routes/auth.routes';
 
 const router = Router();
 
-// Module routes will be mounted here
-// router.use('/auth', authRoutes);
-// router.use('/users', userRoutes);
-// router.use('/products', productRoutes);
+// Module routes
+router.use('/auth', authRoutes);
 
 /**
  * @swagger

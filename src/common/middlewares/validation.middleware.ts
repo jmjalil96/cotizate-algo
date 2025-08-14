@@ -26,13 +26,13 @@ export function validate<T extends z.ZodSchema>(schema: T, options: ValidationOp
       next();
     } catch (error) {
       if (error instanceof ZodError) {
-        const formattedErrors = (error as any).errors.map((err: any) => ({
-          field: err.path.join('.'),
-          message: err.message,
+        const formattedErrors = error.issues.map((issue) => ({
+          field: issue.path.join('.'),
+          message: issue.message,
         }));
 
         const errorMessage = formattedErrors
-          .map((err: any) => `${err.field}: ${err.message}`)
+          .map((err) => `${err.field}: ${err.message}`)
           .join(', ');
 
         next(new ValidationError(errorMessage));
@@ -76,13 +76,13 @@ export function validateAll(schemas: {
       next();
     } catch (error) {
       if (error instanceof ZodError) {
-        const formattedErrors = (error as any).errors.map((err: any) => ({
-          field: err.path.join('.'),
-          message: err.message,
+        const formattedErrors = error.issues.map((issue) => ({
+          field: issue.path.join('.'),
+          message: issue.message,
         }));
 
         const errorMessage = formattedErrors
-          .map((err: any) => `${err.field}: ${err.message}`)
+          .map((err) => `${err.field}: ${err.message}`)
           .join(', ');
 
         next(new ValidationError(errorMessage));

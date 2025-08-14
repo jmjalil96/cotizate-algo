@@ -21,6 +21,17 @@ services:
     networks:
       - cotizate-network
 
+  inbucket:
+    image: inbucket/inbucket:latest
+    container_name: cotizate-inbucket
+    restart: unless-stopped
+    ports:
+      - "2500:2500"  # SMTP
+      - "9000:9000"  # Web UI
+      - "1100:1100"  # POP3
+    networks:
+      - cotizate-network
+
   app:
     build:
       context: ..
@@ -37,6 +48,9 @@ services:
       JWT_EXPIRES_IN: 7d
       API_VERSION: v1
       CORS_ORIGIN: http://localhost:3000
+      EMAIL_PROVIDER: inbucket
+      SMTP_HOST: inbucket
+      SMTP_PORT: 2500
     volumes:
       - ../src:/app/src
       - ../prisma:/app/prisma
@@ -44,6 +58,8 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      inbucket:
+        condition: service_started
     networks:
       - cotizate-network
     command: sh -c "npx prisma migrate deploy && npm run dev"

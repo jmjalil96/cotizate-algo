@@ -1,9 +1,6 @@
 // This is your Prisma schema file,
 // learn more about it in the docs: https://pris.ly/d/prisma-schema
 
-// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
-// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -13,23 +10,250 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-model User {
-  id        String   @id @default(uuid())
-  email     String   @unique
-  name      String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  sessions  Session[]
+// ==================== ENUMS ====================
+enum UserStatus {
+  PENDING    // Email not verified
+  ACTIVE     // Fully active user
+  SUSPENDED  // Temporarily disabled
+  DELETED    // Soft deleted
 }
 
+// ==================== USER & PROFILE ====================
+model User {
+  id                String      @id @default(uuid())
+  email             String      @unique
+  emailVerified     Boolean     @default(false)
+  emailVerifiedAt   DateTime?
+  passwordHash      String
+  status            UserStatus  @default(PENDING)
+  lastLoginAt       DateTime?
+  lastLoginIp       String?
+  failedLoginCount  Int         @default(0)
+  lockedUntil       DateTime?
+  createdAt         DateTime    @default(now())
+  updatedAt         DateTime    @updatedAt
+  
+  profile           Profile?
+  sessions          Session[]
+  refreshTokens     RefreshToken[]
+  organizationUsers OrganizationUser[]
+  emailVerifications EmailVerification[]
+  passwordResets    PasswordReset[]
+  passwordHistories PasswordHistory[]
+  auditLogs         AuditLog[]
+  
+  @@index([email])
+  @@index([status])
+}
+
+model Profile {
+  id          String    @id @default(uuid())
+  userId      String    @unique
+  firstName   String
+  lastName    String
+  avatarUrl   String?
+  phoneNumber String?
+  timezone    String    @default("UTC")
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+// ==================== SESSIONS & TOKENS ====================
 model Session {
-  id        String   @id @default(uuid())
-  token     String   @unique @default(uuid())
+  id         String    @id @default(uuid())
+  userId     String
+  token      String    @unique
+  ipAddress  String?
+  userAgent  String?
+  isExpired  Boolean   @default(false)
+  expiresAt  DateTime
+  createdAt  DateTime  @default(now())
+  
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@index([token])
+  @@index([userId])
+  @@index([expiresAt])
+  @@index([isExpired])
+}
+
+model RefreshToken {
+  id          String    @id @default(uuid())
+  userId      String
+  token       String    @unique
+  family      String    @default(uuid())
+  deviceId    String?
+  ipAddress   String?
+  userAgent   String?
+  isRevoked   Boolean   @default(false)
+  expiresAt   DateTime
+  createdAt   DateTime  @default(now())
+  
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@index([token])
+  @@index([userId])
+  @@index([family])
+}
+
+// ==================== ORGANIZATIONS ====================
+model Organization {
+  id            String    @id @default(uuid())
+  name          String    @unique
+  slug          String    @unique
+  logoUrl       String?
+  defaultRoleId String?
+  settings      Json      @default("{}")
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  
+  defaultRole       Role?              @relation("DefaultRole", fields: [defaultRoleId], references: [id])
+  organizationUsers OrganizationUser[]
+  roles             Role[]             @relation("OrganizationRoles")
+  invitations       Invitation[]
+  
+  @@index([slug])
+}
+
+model OrganizationUser {
+  id             String    @id @default(uuid())
+  userId         String
+  organizationId String
+  roleId         String
+  joinedAt       DateTime  @default(now())
+  
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  role         Role         @relation(fields: [roleId], references: [id])
+  
+  @@unique([userId, organizationId])
+  @@index([userId])
+  @@index([organizationId])
+}
+
+// ==================== RBAC ====================
+model Role {
+  id             String    @id @default(uuid())
+  organizationId String?
+  name           String
+  description    String?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  
+  organization           Organization?      @relation("OrganizationRoles", fields: [organizationId], references: [id], onDelete: Cascade)
+  organizationsAsDefault Organization[]     @relation("DefaultRole")
+  rolePermissions        RolePermission[]
+  organizationUsers      OrganizationUser[]
+  
+  @@unique([organizationId, name])
+  @@index([organizationId])
+}
+
+model Permission {
+  id          String    @id @default(uuid())
+  resource    String
+  action      String
+  description String?
+  createdAt   DateTime  @default(now())
+  
+  rolePermissions RolePermission[]
+  
+  @@unique([resource, action])
+  @@index([resource])
+}
+
+model RolePermission {
+  id           String    @id @default(uuid())
+  roleId       String
+  permissionId String
+  createdAt    DateTime  @default(now())
+  
+  role       Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+  
+  @@unique([roleId, permissionId])
+  @@index([roleId])
+  @@index([permissionId])
+}
+
+// ==================== EMAIL & PASSWORD ====================
+model EmailVerification {
+  id        String    @id @default(uuid())
   userId    String
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  email     String
+  token     String    @unique
   expiresAt DateTime
-  createdAt DateTime @default(now())
+  createdAt DateTime  @default(now())
+  
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@index([token])
+  @@index([userId])
+}
+
+model PasswordReset {
+  id        String    @id @default(uuid())
+  userId    String
+  email     String
+  token     String    @unique
+  usedAt    DateTime?
+  expiresAt DateTime
+  createdAt DateTime  @default(now())
+  
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@index([token])
+  @@index([userId])
+}
+
+model PasswordHistory {
+  id           String    @id @default(uuid())
+  userId       String
+  passwordHash String
+  createdAt    DateTime  @default(now())
+  
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
   
   @@index([userId])
+  @@index([createdAt])
+}
+
+// ==================== INVITATIONS ====================
+model Invitation {
+  id             String    @id @default(uuid())
+  organizationId String
+  email          String
+  roleId         String
+  token          String    @unique
+  acceptedAt     DateTime?
+  expiresAt      DateTime
+  createdAt      DateTime  @default(now())
+  
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  
+  @@unique([organizationId, email])
   @@index([token])
+  @@index([email])
+}
+
+// ==================== SECURITY ====================
+model AuditLog {
+  id             String    @id @default(uuid())
+  userId         String?
+  organizationId String?
+  action         String
+  resource       String
+  resourceId     String?
+  details        Json?
+  ipAddress      String?
+  createdAt      DateTime  @default(now())
+  
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+  
+  @@index([userId])
+  @@index([organizationId])
+  @@index([action])
+  @@index([createdAt])
 }
