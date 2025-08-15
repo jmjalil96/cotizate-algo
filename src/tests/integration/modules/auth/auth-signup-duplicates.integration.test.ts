@@ -73,16 +73,14 @@ describe('Auth Integration - Signup Duplicates', () => {
         password: 'ValidPass123!',
       };
 
-      let response = await request(app)
-        .post('/api/v1/auth/signup')
-        .send(firstUserData);
+      let response = await request(app).post('/api/v1/auth/signup').send(firstUserData);
 
       expect(response.status).toBe(201);
       expect(response.body).toHaveProperty('success', true);
 
       // Verify user was created
       const firstUser = await prisma.user.findUnique({
-        where: { email: firstUserData.email.toLowerCase() }
+        where: { email: firstUserData.email.toLowerCase() },
       });
       expect(firstUser).toBeTruthy();
 
@@ -95,9 +93,7 @@ describe('Auth Integration - Signup Duplicates', () => {
         password: 'AnotherPass456!',
       };
 
-      response = await request(app)
-        .post('/api/v1/auth/signup')
-        .send(duplicateEmailData);
+      response = await request(app).post('/api/v1/auth/signup').send(duplicateEmailData);
 
       expect(response.status).toBe(409);
       expect(response.body).toHaveProperty('error');
@@ -119,9 +115,7 @@ describe('Auth Integration - Signup Duplicates', () => {
         password: 'YetAnotherPass789!',
       };
 
-      response = await request(app)
-        .post('/api/v1/auth/signup')
-        .send(exactDuplicateData);
+      response = await request(app).post('/api/v1/auth/signup').send(exactDuplicateData);
 
       expect(response.status).toBe(409);
       expect(response.body.error.message.toLowerCase()).toContain('email');
@@ -146,16 +140,14 @@ describe('Auth Integration - Signup Duplicates', () => {
         password: 'SecurePass123!',
       };
 
-      let response = await request(app)
-        .post('/api/v1/auth/signup')
-        .send(firstUserData);
+      let response = await request(app).post('/api/v1/auth/signup').send(firstUserData);
 
       expect(response.status).toBe(201);
       expect(response.body).toHaveProperty('success', true);
 
       // Verify organization was created
       const firstOrg = await prisma.organization.findFirst({
-        where: { name: firstUserData.organizationName }
+        where: { name: firstUserData.organizationName },
       });
       expect(firstOrg).toBeTruthy();
 
@@ -168,9 +160,7 @@ describe('Auth Integration - Signup Duplicates', () => {
         password: 'DifferentPass456!',
       };
 
-      response = await request(app)
-        .post('/api/v1/auth/signup')
-        .send(duplicateOrgData);
+      response = await request(app).post('/api/v1/auth/signup').send(duplicateOrgData);
 
       expect(response.status).toBe(409);
       expect(response.body).toHaveProperty('error');
@@ -197,9 +187,7 @@ describe('Auth Integration - Signup Duplicates', () => {
         password: 'AnotherPass789!',
       };
 
-      response = await request(app)
-        .post('/api/v1/auth/signup')
-        .send(differentCaseOrgData);
+      response = await request(app).post('/api/v1/auth/signup').send(differentCaseOrgData);
 
       // Note: This might pass or fail depending on case sensitivity setting
       // If it passes (201), it means org names are case-sensitive
@@ -210,7 +198,7 @@ describe('Auth Integration - Signup Duplicates', () => {
       } else if (response.status === 201) {
         // Case-sensitive implementation - different case is allowed
         expect(response.body).toHaveProperty('success', true);
-        
+
         // Verify two organizations exist with different cases
         const finalOrgs = await prisma.organization.findMany();
         expect(finalOrgs).toHaveLength(2);
@@ -225,16 +213,14 @@ describe('Auth Integration - Signup Duplicates', () => {
         password: 'NewCoPass123!',
       };
 
-      response = await request(app)
-        .post('/api/v1/auth/signup')
-        .send(differentOrgData);
+      response = await request(app).post('/api/v1/auth/signup').send(differentOrgData);
 
       expect(response.status).toBe(201);
       expect(response.body).toHaveProperty('success', true);
 
       // Verify the new organization was created
       const newOrg = await prisma.organization.findFirst({
-        where: { name: differentOrgData.organizationName }
+        where: { name: differentOrgData.organizationName },
       });
       expect(newOrg).toBeTruthy();
     });

@@ -34,10 +34,7 @@ export function generateOTP(): string {
  * Hash a token for secure storage
  */
 export function hashToken(token: string): string {
-  return crypto
-    .createHash('sha256')
-    .update(token)
-    .digest('hex');
+  return crypto.createHash('sha256').update(token).digest('hex');
 }
 
 /**
@@ -54,9 +51,7 @@ export function generateSecureRandomString(length: number): string {
  * Generate a URL-safe random token
  */
 export function generateUrlSafeToken(): string {
-  return crypto
-    .randomBytes(32)
-    .toString('base64url');
+  return crypto.randomBytes(32).toString('base64url');
 }
 
 /**
@@ -69,7 +64,7 @@ export function generateApiKey(prefix: string = 'sk'): {
   const randomPart = crypto.randomBytes(32).toString('base64url');
   const key = `${prefix}_${randomPart}`;
   const hash = hashToken(key);
-  
+
   return { key, hash };
 }
 
@@ -80,11 +75,8 @@ export function secureTokenCompare(token1: string, token2: string): boolean {
   if (token1.length !== token2.length) {
     return false;
   }
-  
-  return crypto.timingSafeEqual(
-    Buffer.from(token1),
-    Buffer.from(token2)
-  );
+
+  return crypto.timingSafeEqual(Buffer.from(token1), Buffer.from(token2));
 }
 
 /**
@@ -113,7 +105,7 @@ export function generateCSRFToken(): string {
  */
 export function isValidTokenFormat(
   token: string,
-  type: 'hex' | 'base64' | 'uuid' | 'otp'
+  type: 'hex' | 'base64' | 'uuid' | 'otp',
 ): boolean {
   switch (type) {
     case 'hex':

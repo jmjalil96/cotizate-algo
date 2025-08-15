@@ -74,45 +74,41 @@ describe('Auth Integration - Verify Database State', () => {
         password: 'VerifiedPass123!',
       };
 
-      await request(app)
-        .post('/api/v1/auth/signup')
-        .send(signupData);
+      await request(app).post('/api/v1/auth/signup').send(signupData);
 
       // Step 2: Check initial state - emailVerified should be false
       const userBefore = await prisma.user.findUnique({
-        where: { email: signupData.email.toLowerCase() }
+        where: { email: signupData.email.toLowerCase() },
       });
-      
+
       expect(userBefore).toBeTruthy();
       expect(userBefore!.emailVerified).toBe(false);
 
       // Step 3: Get and use verification token
       const emailVerification = await prisma.emailVerification.findFirst({
-        where: { email: signupData.email.toLowerCase() }
+        where: { email: signupData.email.toLowerCase() },
       });
-      
+
       const verifyData: EmailVerificationInput = {
         token: emailVerification!.token,
       };
 
-      const response = await request(app)
-        .post('/api/v1/auth/verify')
-        .send(verifyData);
+      const response = await request(app).post('/api/v1/auth/verify').send(verifyData);
 
       expect(response.status).toBe(200);
 
       // Step 4: Check emailVerified flag is now true
       const userAfter = await prisma.user.findUnique({
-        where: { email: signupData.email.toLowerCase() }
+        where: { email: signupData.email.toLowerCase() },
       });
 
       expect(userAfter).toBeTruthy();
       expect(userAfter!.emailVerified).toBe(true); // Should be updated to true
-      
+
       // Verify the flag changed from false to true
       expect(userBefore!.emailVerified).toBe(false);
       expect(userAfter!.emailVerified).toBe(true);
-      
+
       // Verify other fields remain consistent
       expect(userAfter!.id).toBe(userBefore!.id);
       expect(userAfter!.email).toBe(userBefore!.email);
@@ -128,57 +124,53 @@ describe('Auth Integration - Verify Database State', () => {
         password: 'TimestampPass123!',
       };
 
-      await request(app)
-        .post('/api/v1/auth/signup')
-        .send(signupData);
+      await request(app).post('/api/v1/auth/signup').send(signupData);
 
       // Step 2: Check initial state - emailVerifiedAt should be null
       const userBefore = await prisma.user.findUnique({
-        where: { email: signupData.email.toLowerCase() }
+        where: { email: signupData.email.toLowerCase() },
       });
-      
+
       expect(userBefore).toBeTruthy();
       expect(userBefore!.emailVerifiedAt).toBeNull();
-      
+
       // Record time before verification
       const timeBefore = Date.now();
 
       // Step 3: Get and use verification token
       const emailVerification = await prisma.emailVerification.findFirst({
-        where: { email: signupData.email.toLowerCase() }
+        where: { email: signupData.email.toLowerCase() },
       });
-      
+
       const verifyData: EmailVerificationInput = {
         token: emailVerification!.token,
       };
 
-      const response = await request(app)
-        .post('/api/v1/auth/verify')
-        .send(verifyData);
+      const response = await request(app).post('/api/v1/auth/verify').send(verifyData);
 
       expect(response.status).toBe(200);
-      
+
       // Record time after verification
       const timeAfter = Date.now();
 
       // Step 4: Check emailVerifiedAt timestamp is set
       const userAfter = await prisma.user.findUnique({
-        where: { email: signupData.email.toLowerCase() }
+        where: { email: signupData.email.toLowerCase() },
       });
 
       expect(userAfter).toBeTruthy();
       expect(userAfter!.emailVerifiedAt).not.toBeNull();
       expect(userAfter!.emailVerifiedAt).toBeInstanceOf(Date);
-      
+
       // Verify timestamp is within expected range
       const verifiedAt = userAfter!.emailVerifiedAt!.getTime();
       expect(verifiedAt).toBeGreaterThanOrEqual(timeBefore);
       expect(verifiedAt).toBeLessThanOrEqual(timeAfter);
-      
+
       // Verify the timestamp is recent (within last second)
       const now = Date.now();
       expect(now - verifiedAt).toBeLessThan(1000);
-      
+
       // Verify the timestamp changed from null to a Date
       expect(userBefore!.emailVerifiedAt).toBeNull();
       expect(userAfter!.emailVerifiedAt).toBeInstanceOf(Date);
@@ -194,9 +186,7 @@ describe('Auth Integration - Verify Database State', () => {
         password: 'AuditPass123!',
       };
 
-      await request(app)
-        .post('/api/v1/auth/signup')
-        .send(signupData);
+      await request(app).post('/api/v1/auth/signup').send(signupData);
 
       // Get user and organization
       const user = await prisma.user.findUnique({
@@ -204,28 +194,28 @@ describe('Auth Integration - Verify Database State', () => {
         include: {
           organizationUsers: {
             include: {
-              organization: true
-            }
-          }
-        }
+              organization: true,
+            },
+          },
+        },
       });
       const organization = user!.organizationUsers[0].organization;
 
       // Step 2: Check initial audit logs (should have signup and org create)
       const auditLogsBefore = await prisma.auditLog.findMany({
         where: { userId: user!.id },
-        orderBy: { createdAt: 'asc' }
+        orderBy: { createdAt: 'asc' },
       });
-      
+
       expect(auditLogsBefore).toHaveLength(2); // user.signup and organization.create
       expect(auditLogsBefore[0].action).toBe('user.signup');
       expect(auditLogsBefore[1].action).toBe('organization.create');
 
       // Step 3: Get and use verification token
       const emailVerification = await prisma.emailVerification.findFirst({
-        where: { email: signupData.email.toLowerCase() }
+        where: { email: signupData.email.toLowerCase() },
       });
-      
+
       const verifyData: EmailVerificationInput = {
         token: emailVerification!.token,
       };
@@ -241,11 +231,11 @@ describe('Auth Integration - Verify Database State', () => {
       // Step 4: Check audit log for email verification was created
       const auditLogsAfter = await prisma.auditLog.findMany({
         where: { userId: user!.id },
-        orderBy: { createdAt: 'asc' }
+        orderBy: { createdAt: 'asc' },
       });
 
       expect(auditLogsAfter).toHaveLength(3); // Should have added one more
-      
+
       // Check the new email verification audit log
       const verifyAuditLog = auditLogsAfter[2];
       expect(verifyAuditLog.action).toBe('user.email_verified');
@@ -254,11 +244,13 @@ describe('Auth Integration - Verify Database State', () => {
       expect(verifyAuditLog.userId).toBe(user!.id);
       expect(verifyAuditLog.organizationId).toBe(organization.id);
       expect(verifyAuditLog.ipAddress).toBe('192.168.1.50');
-      expect(verifyAuditLog.details).toEqual(expect.objectContaining({
-        email: signupData.email.toLowerCase()
-      }));
+      expect(verifyAuditLog.details).toEqual(
+        expect.objectContaining({
+          email: signupData.email.toLowerCase(),
+        }),
+      );
       expect(verifyAuditLog.createdAt).toBeInstanceOf(Date);
-      
+
       // Verify the audit log was created recently
       const now = Date.now();
       const auditTime = verifyAuditLog.createdAt.getTime();
@@ -275,9 +267,7 @@ describe('Auth Integration - Verify Database State', () => {
         password: 'SessionPass123!',
       };
 
-      await request(app)
-        .post('/api/v1/auth/signup')
-        .send(signupData);
+      await request(app).post('/api/v1/auth/signup').send(signupData);
 
       // Get user and organization
       const user = await prisma.user.findUnique({
@@ -285,18 +275,18 @@ describe('Auth Integration - Verify Database State', () => {
         include: {
           organizationUsers: {
             include: {
-              organization: true
-            }
-          }
-        }
+              organization: true,
+            },
+          },
+        },
       });
       const organization = user!.organizationUsers[0].organization;
 
       // Step 2: Get and use verification token
       const emailVerification = await prisma.emailVerification.findFirst({
-        where: { email: signupData.email.toLowerCase() }
+        where: { email: signupData.email.toLowerCase() },
       });
-      
+
       const verifyData: EmailVerificationInput = {
         token: emailVerification!.token,
       };
@@ -308,7 +298,7 @@ describe('Auth Integration - Verify Database State', () => {
         .send(verifyData);
 
       expect(response.status).toBe(200);
-      
+
       // Extract tokens from response
       const { accessToken, refreshToken } = response.body.data;
       expect(accessToken).toBeTruthy();
@@ -316,17 +306,17 @@ describe('Auth Integration - Verify Database State', () => {
 
       // Step 3: Verify session was created and linked correctly
       const sessions = await prisma.session.findMany({
-        where: { userId: user!.id }
+        where: { userId: user!.id },
       });
 
       expect(sessions).toHaveLength(1);
       const session = sessions[0];
-      
+
       // Verify session is linked to correct user
       expect(session.userId).toBe(user!.id);
       expect(session.ipAddress).toBe('10.0.0.100');
       expect(session.userAgent).toContain('Mozilla/5.0 Test');
-      
+
       // Step 4: Decode JWT to verify organization link
       const decoded = jwt.decode(accessToken) as any;
       expect(decoded).toBeTruthy();
@@ -334,32 +324,32 @@ describe('Auth Integration - Verify Database State', () => {
       expect(decoded.organizationId).toBe(organization.id);
       expect(decoded.sessionId).toBe(session.id);
       expect(decoded.email).toBe(signupData.email.toLowerCase());
-      
+
       // Step 5: Verify refresh token is linked to session and user
       const refreshTokens = await prisma.refreshToken.findMany({
-        where: { userId: user!.id }
+        where: { userId: user!.id },
       });
 
       expect(refreshTokens).toHaveLength(1);
       const refreshTokenRecord = refreshTokens[0];
-      
+
       expect(refreshTokenRecord.userId).toBe(user!.id);
       expect(refreshTokenRecord.token).toBe(refreshToken);
-      
+
       // Step 6: Verify organization relationship
       const orgUser = await prisma.organizationUser.findFirst({
         where: {
           userId: user!.id,
-          organizationId: organization.id
+          organizationId: organization.id,
         },
         include: {
-          role: true
-        }
+          role: true,
+        },
       });
 
       expect(orgUser).toBeTruthy();
       expect(orgUser!.role.name).toBe('owner');
-      
+
       // Verify all components are linked correctly
       expect(session.userId).toBe(user!.id);
       expect(refreshTokenRecord.userId).toBe(user!.id);

@@ -69,9 +69,7 @@ describe('Auth Integration - Verify Error Scenarios', () => {
         token: 'invalid-token-that-does-not-exist-123456789',
       };
 
-      const response = await request(app)
-        .post('/api/v1/auth/verify')
-        .send(verifyData);
+      const response = await request(app).post('/api/v1/auth/verify').send(verifyData);
 
       expect(response.status).toBe(404);
       expect(response.body).toHaveProperty('error');
@@ -116,15 +114,13 @@ describe('Auth Integration - Verify Error Scenarios', () => {
         password: 'ExpiredPass123!',
       };
 
-      await request(app)
-        .post('/api/v1/auth/signup')
-        .send(signupData);
+      await request(app).post('/api/v1/auth/signup').send(signupData);
 
       // Step 2: Get the verification token and manually expire it
       const emailVerification = await prisma.emailVerification.findFirst({
-        where: { email: signupData.email.toLowerCase() }
+        where: { email: signupData.email.toLowerCase() },
       });
-      
+
       expect(emailVerification).toBeTruthy();
       const expiredToken = emailVerification!.token;
 
@@ -132,8 +128,8 @@ describe('Auth Integration - Verify Error Scenarios', () => {
       await prisma.emailVerification.update({
         where: { id: emailVerification!.id },
         data: {
-          expiresAt: new Date(Date.now() - 60 * 60 * 1000) // 1 hour ago
-        }
+          expiresAt: new Date(Date.now() - 60 * 60 * 1000), // 1 hour ago
+        },
       });
 
       // Step 3: Try to verify with expired token
@@ -141,9 +137,7 @@ describe('Auth Integration - Verify Error Scenarios', () => {
         token: expiredToken,
       };
 
-      const response = await request(app)
-        .post('/api/v1/auth/verify')
-        .send(verifyData);
+      const response = await request(app).post('/api/v1/auth/verify').send(verifyData);
 
       // Step 4: Assert 401 response
       expect(response.status).toBe(401);
@@ -153,16 +147,16 @@ describe('Auth Integration - Verify Error Scenarios', () => {
 
       // Step 5: Verify no session or tokens were created
       const user = await prisma.user.findUnique({
-        where: { email: signupData.email.toLowerCase() }
+        where: { email: signupData.email.toLowerCase() },
       });
 
       const sessions = await prisma.session.findMany({
-        where: { userId: user!.id }
+        where: { userId: user!.id },
       });
       expect(sessions).toHaveLength(0);
 
       const refreshTokens = await prisma.refreshToken.findMany({
-        where: { userId: user!.id }
+        where: { userId: user!.id },
       });
       expect(refreshTokens).toHaveLength(0);
 
@@ -172,16 +166,14 @@ describe('Auth Integration - Verify Error Scenarios', () => {
 
       // Verify the expired token still exists (not deleted on failure)
       const tokenStillExists = await prisma.emailVerification.findUnique({
-        where: { id: emailVerification!.id }
+        where: { id: emailVerification!.id },
       });
       expect(tokenStillExists).toBeTruthy();
     });
 
     it('should return 400 for missing token', async () => {
       // Test with no token field at all
-      let response = await request(app)
-        .post('/api/v1/auth/verify')
-        .send({});
+      let response = await request(app).post('/api/v1/auth/verify').send({});
 
       expect(response.status).toBe(400);
       expect(response.body).toHaveProperty('error');
@@ -189,33 +181,25 @@ describe('Auth Integration - Verify Error Scenarios', () => {
       expect(response.body.error.message.toLowerCase()).toContain('token');
 
       // Test with null token
-      response = await request(app)
-        .post('/api/v1/auth/verify')
-        .send({ token: null });
+      response = await request(app).post('/api/v1/auth/verify').send({ token: null });
 
       expect(response.status).toBe(400);
       expect(response.body.error.message).toBeTruthy();
 
       // Test with undefined token (will be stripped by JSON)
-      response = await request(app)
-        .post('/api/v1/auth/verify')
-        .send({ token: undefined });
+      response = await request(app).post('/api/v1/auth/verify').send({ token: undefined });
 
       expect(response.status).toBe(400);
       expect(response.body.error.message).toBeTruthy();
 
       // Test with empty string token
-      response = await request(app)
-        .post('/api/v1/auth/verify')
-        .send({ token: '' });
+      response = await request(app).post('/api/v1/auth/verify').send({ token: '' });
 
       expect(response.status).toBe(400);
       expect(response.body.error.message.toLowerCase()).toContain('token');
 
       // Test with whitespace-only token (may be trimmed and treated as invalid)
-      response = await request(app)
-        .post('/api/v1/auth/verify')
-        .send({ token: '   ' });
+      response = await request(app).post('/api/v1/auth/verify').send({ token: '   ' });
 
       // Whitespace might be trimmed and treated as invalid token (404) or validation error (400)
       expect([400, 404]).toContain(response.status);
@@ -230,13 +214,11 @@ describe('Auth Integration - Verify Error Scenarios', () => {
       expect(response.body.error.message.toLowerCase()).toContain('token');
 
       // Test with extra fields but missing token
-      response = await request(app)
-        .post('/api/v1/auth/verify')
-        .send({ 
-          email: 'test@example.com',
-          userId: '123',
-          randomField: 'value'
-        });
+      response = await request(app).post('/api/v1/auth/verify').send({
+        email: 'test@example.com',
+        userId: '123',
+        randomField: 'value',
+      });
 
       expect(response.status).toBe(400);
       expect(response.body.error.message.toLowerCase()).toContain('token');
@@ -259,13 +241,11 @@ describe('Auth Integration - Verify Error Scenarios', () => {
         password: 'DoublePass123!',
       };
 
-      await request(app)
-        .post('/api/v1/auth/signup')
-        .send(signupData);
+      await request(app).post('/api/v1/auth/signup').send(signupData);
 
       // Step 2: Get the verification token
       const emailVerification = await prisma.emailVerification.findFirst({
-        where: { email: signupData.email.toLowerCase() }
+        where: { email: signupData.email.toLowerCase() },
       });
       const verificationToken = emailVerification!.token;
 
@@ -274,9 +254,7 @@ describe('Auth Integration - Verify Error Scenarios', () => {
         token: verificationToken,
       };
 
-      const firstResponse = await request(app)
-        .post('/api/v1/auth/verify')
-        .send(firstVerifyData);
+      const firstResponse = await request(app).post('/api/v1/auth/verify').send(firstVerifyData);
 
       expect(firstResponse.status).toBe(200);
       expect(firstResponse.body).toHaveProperty('success', true);
@@ -285,15 +263,13 @@ describe('Auth Integration - Verify Error Scenarios', () => {
 
       // Verify user is now active
       const userAfterFirst = await prisma.user.findUnique({
-        where: { email: signupData.email.toLowerCase() }
+        where: { email: signupData.email.toLowerCase() },
       });
       expect(userAfterFirst!.status).toBe('ACTIVE');
       expect(userAfterFirst!.emailVerified).toBe(true);
 
       // Step 4: Second verification attempt - should fail (token deleted)
-      const secondResponse = await request(app)
-        .post('/api/v1/auth/verify')
-        .send(firstVerifyData);
+      const secondResponse = await request(app).post('/api/v1/auth/verify').send(firstVerifyData);
 
       expect(secondResponse.status).toBe(404); // Token no longer exists
       expect(secondResponse.body).toHaveProperty('error');
@@ -301,28 +277,28 @@ describe('Auth Integration - Verify Error Scenarios', () => {
 
       // Step 5: Verify only one session was created (from first verification)
       const sessions = await prisma.session.findMany({
-        where: { userId: userAfterFirst!.id }
+        where: { userId: userAfterFirst!.id },
       });
       expect(sessions).toHaveLength(1); // Only one from successful verification
 
       const refreshTokens = await prisma.refreshToken.findMany({
-        where: { userId: userAfterFirst!.id }
+        where: { userId: userAfterFirst!.id },
       });
       expect(refreshTokens).toHaveLength(1); // Only one from successful verification
 
       // Verify user status remains ACTIVE (not affected by second attempt)
       const userAfterSecond = await prisma.user.findUnique({
-        where: { email: signupData.email.toLowerCase() }
+        where: { email: signupData.email.toLowerCase() },
       });
       expect(userAfterSecond!.status).toBe('ACTIVE');
       expect(userAfterSecond!.emailVerified).toBe(true);
 
       // Verify no new audit logs were created for the failed attempt
       const auditLogs = await prisma.auditLog.findMany({
-        where: { 
+        where: {
           userId: userAfterFirst!.id,
-          action: 'user.email_verified'
-        }
+          action: 'user.email_verified',
+        },
       });
       expect(auditLogs).toHaveLength(1); // Only one from successful verification
     });

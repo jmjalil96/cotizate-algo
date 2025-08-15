@@ -23,7 +23,7 @@ export function generateAccessToken(payload: AccessTokenPayload): string {
     expiresIn: (env.JWT_EXPIRES_IN || '15m') as any,
     jwtid: uuidv4(),
   };
-  
+
   return jwt.sign(payload, env.JWT_SECRET as string, options);
 }
 
@@ -64,12 +64,12 @@ export function decodeWithoutVerify(token: string): DecodedToken | null {
  */
 export function extractBearerToken(authHeader?: string): string | null {
   if (!authHeader) return null;
-  
+
   const parts = authHeader.split(' ');
   if (parts.length !== 2 || parts[0] !== 'Bearer') {
     return null;
   }
-  
+
   return parts[1];
 }
 
@@ -93,7 +93,7 @@ export function isTokenExpired(token: string): boolean {
   try {
     const decoded = decodeWithoutVerify(token);
     if (!decoded || !decoded.exp) return true;
-    
+
     const currentTime = Math.floor(Date.now() / 1000);
     return decoded.exp < currentTime;
   } catch {
@@ -107,7 +107,7 @@ export function isTokenExpired(token: string): boolean {
 export function getTokenExpiryTime(token: string): number {
   const decoded = decodeWithoutVerify(token);
   if (!decoded || !decoded.exp) return 0;
-  
+
   const currentTime = Math.floor(Date.now() / 1000);
   return Math.max(0, decoded.exp - currentTime);
 }
@@ -115,15 +115,12 @@ export function getTokenExpiryTime(token: string): number {
 /**
  * Sign a payload with custom expiry
  */
-export function signCustomToken(
-  payload: Record<string, any>,
-  expiresIn: string
-): string {
+export function signCustomToken(payload: Record<string, any>, expiresIn: string): string {
   const options: SignOptions = {
     expiresIn: expiresIn as any,
     jwtid: uuidv4(),
   };
-  
+
   return jwt.sign(payload, env.JWT_SECRET as string, options);
 }
 

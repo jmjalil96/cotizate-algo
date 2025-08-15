@@ -147,12 +147,14 @@ describe('E2E - Complete Auth Flow', () => {
       expect(verifyResponse.body.data.refreshToken).toBeTruthy();
       expect(verifyResponse.body.data.user.id).toBe(userAfterSignup!.id);
       expect(verifyResponse.body.data.user.email).toBe(signupData.email.toLowerCase());
-      expect(verifyResponse.body.data.organization.id).toBe(userAfterSignup!.organizationUsers[0].organizationId);
+      expect(verifyResponse.body.data.organization.id).toBe(
+        userAfterSignup!.organizationUsers[0].organizationId,
+      );
 
       // Step 6: Validate JWT token
       const { accessToken, refreshToken } = verifyResponse.body.data;
       const decoded = jwt.verify(accessToken, env.JWT_SECRET as string) as any;
-      
+
       expect(decoded.userId).toBe(userAfterSignup!.id);
       expect(decoded.email).toBe(signupData.email.toLowerCase());
       expect(decoded.organizationId).toBe(userAfterSignup!.organizationUsers[0].organizationId);
@@ -176,7 +178,7 @@ describe('E2E - Complete Auth Flow', () => {
 
       expect(session).toBeTruthy();
       expect(session!.id).toBe(decoded.sessionId);
-      expect(session!.isExpired).toBe(false);
+      expect(session!.isActive).toBe(true);
       expect(session!.ipAddress).toBe('192.168.1.100');
       expect(session!.userAgent).toContain('E2E Test Browser');
 
@@ -225,9 +227,7 @@ describe('E2E - Complete Auth Flow', () => {
         password: 'FirstPass123!',
       };
 
-      const firstResponse = await request(app)
-        .post('/api/v1/auth/signup')
-        .send(firstUser);
+      const firstResponse = await request(app).post('/api/v1/auth/signup').send(firstUser);
 
       expect(firstResponse.status).toBe(201);
 
@@ -240,9 +240,7 @@ describe('E2E - Complete Auth Flow', () => {
         password: 'SecondPass123!',
       };
 
-      const secondResponse = await request(app)
-        .post('/api/v1/auth/signup')
-        .send(secondUser);
+      const secondResponse = await request(app).post('/api/v1/auth/signup').send(secondUser);
 
       expect(secondResponse.status).toBe(409);
       expect(secondResponse.body.error.message).toContain('Organization name already taken');
@@ -265,9 +263,7 @@ describe('E2E - Complete Auth Flow', () => {
         password: 'CasePass123!',
       };
 
-      const signupResponse = await request(app)
-        .post('/api/v1/auth/signup')
-        .send(signupData);
+      const signupResponse = await request(app).post('/api/v1/auth/signup').send(signupData);
 
       expect(signupResponse.status).toBe(201);
       expect(signupResponse.body.data.user.email).toBe('case.test@example.com'); // Lowercased

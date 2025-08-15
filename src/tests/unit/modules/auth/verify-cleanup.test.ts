@@ -1,4 +1,4 @@
-import { AuthService } from '@/modules/auth/services/auth.service';
+import { VerificationService } from '@/modules/auth/services/verification.service';
 import { prisma } from '@/core/database/prisma.client';
 import { sessionService } from '@/modules/auth/services/session.service';
 import { generateAccessToken } from '@/modules/auth/utils/jwt.utils';
@@ -31,11 +31,11 @@ jest.mock('@/modules/shared/services/audit.service', () => ({
   },
 }));
 
-describe('AuthService - Verify Cleanup Tests', () => {
-  let authService: AuthService;
-  
+describe('VerificationService - Verify Cleanup Tests', () => {
+  let verificationService: VerificationService;
+
   beforeEach(() => {
-    authService = new AuthService();
+    verificationService = new VerificationService();
     jest.clearAllMocks();
   });
 
@@ -124,7 +124,7 @@ describe('AuthService - Verify Cleanup Tests', () => {
       (generateAccessToken as jest.Mock).mockReturnValue(mockAccessToken);
 
       // Act
-      await authService.verify(verifyToken, ipAddress, userAgent);
+      await verificationService.verify(verifyToken, ipAddress, userAgent);
 
       // Assert - Verify token deletion
       expect(mockTx.emailVerification.delete).toHaveBeenCalledWith({
@@ -216,7 +216,7 @@ describe('AuthService - Verify Cleanup Tests', () => {
       (generateAccessToken as jest.Mock).mockReturnValue(mockAccessToken);
 
       // Act
-      await authService.verify(verifyToken, ipAddress, userAgent);
+      await verificationService.verify(verifyToken, ipAddress, userAgent);
 
       // Assert - Verify audit log creation
       expect(auditService.logAction).toHaveBeenCalledWith(
@@ -231,7 +231,7 @@ describe('AuthService - Verify Cleanup Tests', () => {
           },
           ipAddress,
         },
-        mockTx
+        mockTx,
       );
       expect(auditService.logAction).toHaveBeenCalledTimes(1);
     });
@@ -318,7 +318,7 @@ describe('AuthService - Verify Cleanup Tests', () => {
       (generateAccessToken as jest.Mock).mockReturnValue(mockAccessToken);
 
       // Act
-      const result = await authService.verify(verifyToken, ipAddress, userAgent);
+      const result = await verificationService.verify(verifyToken, ipAddress, userAgent);
 
       // Assert - Verify complete response structure
       expect(result).toEqual({

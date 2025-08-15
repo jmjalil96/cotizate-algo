@@ -1,4 +1,4 @@
-import { AuthService } from '@/modules/auth/services/auth.service';
+import { SignupService } from '@/modules/auth/services/signup.service';
 import { prisma } from '@/core/database/prisma.client';
 import { hashPassword } from '@/modules/auth/utils/password.utils';
 import { generateVerificationToken } from '@/modules/auth/utils/token.utils';
@@ -44,11 +44,11 @@ jest.mock('@/modules/shared/services/audit.service', () => ({
   },
 }));
 
-describe('AuthService - Signup Core Tests', () => {
-  let authService: AuthService;
-  
+describe('SignupService - Signup Core Tests', () => {
+  let signupService: SignupService;
+
   beforeEach(() => {
-    authService = new AuthService();
+    signupService = new SignupService();
     jest.clearAllMocks();
   });
 
@@ -137,7 +137,7 @@ describe('AuthService - Signup Core Tests', () => {
       (prisma.$transaction as jest.Mock).mockImplementation(mockTransaction);
 
       // Act
-      const result = await authService.signup(signupData, ipAddress);
+      const result = await signupService.signup(signupData, ipAddress);
 
       // Assert
       expect(result).toEqual({
@@ -173,7 +173,7 @@ describe('AuthService - Signup Core Tests', () => {
       expect(addPasswordToHistory).toHaveBeenCalledWith(
         mockUserId,
         mockPasswordHash,
-        expect.anything()
+        expect.anything(),
       );
 
       // Verify audit logs were created
@@ -186,7 +186,7 @@ describe('AuthService - Signup Core Tests', () => {
           resourceId: mockUserId,
           ipAddress,
         }),
-        expect.anything()
+        expect.anything(),
       );
       expect(auditService.logAction).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -197,7 +197,7 @@ describe('AuthService - Signup Core Tests', () => {
           resourceId: mockOrgId,
           ipAddress,
         }),
-        expect.anything()
+        expect.anything(),
       );
 
       // Verify email was sent
@@ -206,7 +206,7 @@ describe('AuthService - Signup Core Tests', () => {
           email: signupData.email,
           firstName: signupData.firstName,
         },
-        mockVerificationToken
+        mockVerificationToken,
       );
     });
 
@@ -227,7 +227,7 @@ describe('AuthService - Signup Core Tests', () => {
       });
 
       // Act & Assert
-      await expect(authService.signup(signupData)).rejects.toThrow('Email already registered');
+      await expect(signupService.signup(signupData)).rejects.toThrow('Email already registered');
 
       // Verify that we checked for existing email
       expect(prisma.user.findUnique).toHaveBeenCalledWith({
@@ -262,7 +262,9 @@ describe('AuthService - Signup Core Tests', () => {
       });
 
       // Act & Assert
-      await expect(authService.signup(signupData)).rejects.toThrow('Organization name already taken');
+      await expect(signupService.signup(signupData)).rejects.toThrow(
+        'Organization name already taken',
+      );
 
       // Verify that we checked for existing email
       expect(prisma.user.findUnique).toHaveBeenCalledWith({
@@ -344,7 +346,9 @@ describe('AuthService - Signup Core Tests', () => {
       (prisma.$transaction as jest.Mock).mockImplementation(mockTransaction);
 
       // Act & Assert
-      await expect(authService.signup(signupData)).rejects.toThrow('Owner role not found. Please run database seed.');
+      await expect(signupService.signup(signupData)).rejects.toThrow(
+        'Owner role not found. Please run database seed.',
+      );
 
       // Verify pre-checks were called
       expect(prisma.user.findUnique).toHaveBeenCalledWith({
@@ -379,7 +383,7 @@ describe('AuthService - Signup Core Tests', () => {
 
       // Mock password hashing
       (hashPassword as jest.Mock).mockResolvedValue(expectedHashedPassword);
-      
+
       // Mock other utilities
       (generateOrganizationSlug as jest.Mock).mockResolvedValue('hash-test-org');
       (generateVerificationToken as jest.Mock).mockReturnValue('token-123');
@@ -392,7 +396,7 @@ describe('AuthService - Signup Core Tests', () => {
               // Verify the hashed password is being stored, not the plain text
               expect(data.data.passwordHash).toBe(expectedHashedPassword);
               expect(data.data.passwordHash).not.toBe(signupData.password);
-              
+
               return Promise.resolve({
                 id: 'user-hash-test',
                 email: signupData.email,
@@ -428,17 +432,17 @@ describe('AuthService - Signup Core Tests', () => {
       (prisma.$transaction as jest.Mock).mockImplementation(mockTransaction);
 
       // Act
-      await authService.signup(signupData);
+      await signupService.signup(signupData);
 
       // Assert
       expect(hashPassword).toHaveBeenCalledWith(signupData.password);
       expect(hashPassword).toHaveBeenCalledTimes(1);
-      
+
       // Verify password was hashed before being passed to transaction
       expect(addPasswordToHistory).toHaveBeenCalledWith(
         'user-hash-test',
         expectedHashedPassword,
-        expect.anything()
+        expect.anything(),
       );
     });
   });

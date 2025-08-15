@@ -1,4 +1,4 @@
-import { AuthService } from '@/modules/auth/services/auth.service';
+import { VerificationService } from '@/modules/auth/services/verification.service';
 import { prisma } from '@/core/database/prisma.client';
 import { sessionService } from '@/modules/auth/services/session.service';
 import { generateAccessToken } from '@/modules/auth/utils/jwt.utils';
@@ -31,14 +31,14 @@ jest.mock('@/modules/shared/services/audit.service', () => ({
   },
 }));
 
-describe('AuthService - Verify Behavior Tests', () => {
-  let authService: AuthService;
+describe('VerificationService - Verify Behavior Tests', () => {
+  let verificationService: VerificationService;
   let mockTx: any;
-  
+
   beforeEach(() => {
-    authService = new AuthService();
+    verificationService = new VerificationService();
     jest.clearAllMocks();
-    
+
     // Set up mock transaction object
     mockTx = {
       user: {
@@ -136,7 +136,7 @@ describe('AuthService - Verify Behavior Tests', () => {
       (generateAccessToken as jest.Mock).mockReturnValue(mockAccessToken);
 
       // Act
-      await authService.verify(verifyToken, ipAddress, userAgent);
+      await verificationService.verify(verifyToken, ipAddress, userAgent);
 
       // Assert - Focus on user.update call
       expect(mockTx.user.update).toHaveBeenCalledWith({
@@ -243,7 +243,7 @@ describe('AuthService - Verify Behavior Tests', () => {
       (generateAccessToken as jest.Mock).mockReturnValue(mockAccessToken);
 
       // Act
-      await authService.verify(verifyToken, ipAddress, userAgent);
+      await verificationService.verify(verifyToken, ipAddress, userAgent);
 
       // Assert - Focus on emailVerified and emailVerifiedAt fields
       expect(mockTx.user.update).toHaveBeenCalledWith({
@@ -368,7 +368,7 @@ describe('AuthService - Verify Behavior Tests', () => {
       (generateAccessToken as jest.Mock).mockReturnValue(mockAccessToken);
 
       // Act
-      await authService.verify(verifyToken, ipAddress, userAgent);
+      await verificationService.verify(verifyToken, ipAddress, userAgent);
 
       // Assert - Verify sessionService.createSession was called with correct parameters
       expect(sessionService.createSession).toHaveBeenCalledWith({
@@ -384,7 +384,7 @@ describe('AuthService - Verify Behavior Tests', () => {
       // Verify the session has an expiry time approximately 24 hours from now
       const sessionExpiryTime = mockSession.expiresAt;
       const testEndTime = new Date();
-      
+
       // Calculate expected 24-hour window (86400000 ms = 24 hours)
       const expectedMinExpiry = new Date(testStartTime.getTime() + 24 * 60 * 60 * 1000 - 5000); // -5s tolerance
       const expectedMaxExpiry = new Date(testEndTime.getTime() + 24 * 60 * 60 * 1000 + 5000); // +5s tolerance
@@ -397,7 +397,7 @@ describe('AuthService - Verify Behavior Tests', () => {
       const actualDurationMs = sessionExpiryTime.getTime() - testStartTime.getTime();
       const expectedDurationMs = 24 * 60 * 60 * 1000; // 24 hours in milliseconds
       const toleranceMs = 10000; // 10 seconds tolerance
-      
+
       expect(actualDurationMs).toBeGreaterThanOrEqual(expectedDurationMs - toleranceMs);
       expect(actualDurationMs).toBeLessThanOrEqual(expectedDurationMs + toleranceMs);
 

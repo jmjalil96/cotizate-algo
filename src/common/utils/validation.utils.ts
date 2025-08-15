@@ -4,11 +4,13 @@ import validator from 'validator';
  * Sanitize email address
  */
 export function sanitizeEmail(email: string): string {
-  return validator.normalizeEmail(email, {
-    all_lowercase: true,
-    gmail_remove_dots: false,
-    gmail_remove_subaddress: false,
-  }) || email.toLowerCase().trim();
+  return (
+    validator.normalizeEmail(email, {
+      all_lowercase: true,
+      gmail_remove_dots: false,
+      gmail_remove_subaddress: false,
+    }) || email.toLowerCase().trim()
+  );
 }
 
 /**
@@ -33,7 +35,7 @@ export function escapeHtml(text: string): string {
     "'": '&#039;',
     '/': '&#x2F;',
   };
-  
+
   return text.replace(/[&<>"'/]/g, (char) => map[char]);
 }
 
@@ -49,19 +51,19 @@ export function validateUUID(id: string): boolean {
  */
 export function normalizePhoneNumber(phone: string, defaultCountry: string = 'US'): string | null {
   const cleaned = phone.replace(/\D/g, '');
-  
+
   if (defaultCountry === 'US' && cleaned.length === 10) {
     return `+1${cleaned}`;
   }
-  
+
   if (cleaned.startsWith('1') && cleaned.length === 11) {
     return `+${cleaned}`;
   }
-  
+
   if (cleaned.startsWith('44') && cleaned.length >= 12) {
     return `+${cleaned}`;
   }
-  
+
   return validator.isMobilePhone(phone, 'any') ? phone : null;
 }
 

@@ -1,10 +1,12 @@
 import { Router } from 'express';
 import authRoutes from '@/modules/auth/routes/auth.routes';
+import demoRoutes from '@/modules/auth/routes/demo.routes';
 
 const router = Router();
 
 // Module routes
 router.use('/auth', authRoutes);
+router.use('/demo', demoRoutes); // Demo routes to showcase hybrid auth
 
 /**
  * @swagger

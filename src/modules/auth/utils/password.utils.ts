@@ -24,10 +24,7 @@ export async function hashPassword(password: string): Promise<string> {
 /**
  * Verify a plain text password against a hash
  */
-export async function verifyPassword(
-  password: string,
-  hash: string
-): Promise<boolean> {
+export async function verifyPassword(password: string, hash: string): Promise<boolean> {
   return bcrypt.compare(password, hash);
 }
 
@@ -39,14 +36,14 @@ export function validatePasswordStrength(password: string): {
   errors: string[];
 } {
   const result = passwordSchema.safeParse(password);
-  
+
   if (result.success) {
     return { isValid: true, errors: [] };
   }
-  
+
   return {
     isValid: false,
-    errors: result.error.issues.map(issue => issue.message),
+    errors: result.error.issues.map((issue) => issue.message),
   };
 }
 
@@ -56,11 +53,11 @@ export function validatePasswordStrength(password: string): {
 export function generateTemporaryPassword(): string {
   const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*';
   let password = '';
-  
+
   for (let i = 0; i < 16; i++) {
     password += chars.charAt(Math.floor(Math.random() * chars.length));
   }
-  
+
   return password;
 }
 
@@ -70,7 +67,7 @@ export function generateTemporaryPassword(): string {
 export async function checkPasswordHistory(
   userId: string,
   newPassword: string,
-  tx?: Prisma.TransactionClient
+  tx?: Prisma.TransactionClient,
 ): Promise<boolean> {
   const client = tx || prisma;
   const passwordHistory = await client.passwordHistory.findMany({
@@ -78,17 +75,14 @@ export async function checkPasswordHistory(
     orderBy: { createdAt: 'desc' },
     take: PASSWORD_HISTORY_LIMIT,
   });
-  
+
   for (const history of passwordHistory) {
-    const isDuplicate = await bcrypt.compare(
-      newPassword,
-      history.passwordHash
-    );
+    const isDuplicate = await bcrypt.compare(newPassword, history.passwordHash);
     if (isDuplicate) {
       return false;
     }
   }
-  
+
   return true;
 }
 
@@ -98,27 +92,25 @@ export async function checkPasswordHistory(
 export async function addPasswordToHistory(
   userId: string,
   passwordHash: string,
-  tx?: Prisma.TransactionClient
+  tx?: Prisma.TransactionClient,
 ): Promise<void> {
   const client = tx || prisma;
-  
+
   await client.passwordHistory.create({
     data: {
       userId,
       passwordHash,
     },
   });
-  
+
   const allHistory = await client.passwordHistory.findMany({
     where: { userId },
     orderBy: { createdAt: 'desc' },
   });
-  
+
   if (allHistory.length > PASSWORD_HISTORY_LIMIT) {
-    const idsToDelete = allHistory
-      .slice(PASSWORD_HISTORY_LIMIT)
-      .map(h => h.id);
-    
+    const idsToDelete = allHistory.slice(PASSWORD_HISTORY_LIMIT).map((h) => h.id);
+
     await client.passwordHistory.deleteMany({
       where: {
         id: { in: idsToDelete },
@@ -137,14 +129,14 @@ export function calculatePasswordEntropy(password: string): number {
     { regex: /[0-9]/, size: 10 },
     { regex: /[^A-Za-z0-9]/, size: 32 },
   ];
-  
+
   let poolSize = 0;
   for (const charset of charsets) {
     if (charset.regex.test(password)) {
       poolSize += charset.size;
     }
   }
-  
+
   const entropy = password.length * Math.log2(poolSize);
   return Math.round(entropy);
 }
@@ -161,7 +153,7 @@ export function getPasswordStrength(password: string): {
   const feedback: string[] = [];
   let score = 0;
   let level: 'weak' | 'fair' | 'good' | 'strong' | 'very-strong';
-  
+
   if (password.length >= 8) score++;
   if (password.length >= 12) score++;
   if (password.length >= 16) score++;
@@ -169,7 +161,7 @@ export function getPasswordStrength(password: string): {
   if (/[A-Z]/.test(password)) score++;
   if (/[0-9]/.test(password)) score++;
   if (/[^A-Za-z0-9]/.test(password)) score++;
-  
+
   if (password.length < 8) {
     feedback.push('Use at least 8 characters');
   }
@@ -185,7 +177,7 @@ export function getPasswordStrength(password: string): {
   if (!/[^A-Za-z0-9]/.test(password)) {
     feedback.push('Include special characters');
   }
-  
+
   if (entropy < 30) {
     level = 'weak';
   } else if (entropy < 40) {
@@ -197,6 +189,6 @@ export function getPasswordStrength(password: string): {
   } else {
     level = 'very-strong';
   }
-  
+
   return { score, level, feedback };
 }

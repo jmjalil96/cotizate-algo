@@ -1,4 +1,4 @@
-import { AuthService } from '@/modules/auth/services/auth.service';
+import { SignupService } from '@/modules/auth/services/signup.service';
 import { prisma } from '@/core/database/prisma.client';
 import { hashPassword } from '@/modules/auth/utils/password.utils';
 import { generateVerificationToken } from '@/modules/auth/utils/token.utils';
@@ -44,11 +44,11 @@ jest.mock('@/modules/shared/services/audit.service', () => ({
   },
 }));
 
-describe('AuthService - Signup Validation Tests', () => {
-  let authService: AuthService;
-  
+describe('SignupService - Signup Validation Tests', () => {
+  let signupService: SignupService;
+
   beforeEach(() => {
-    authService = new AuthService();
+    signupService = new SignupService();
     jest.clearAllMocks();
   });
 
@@ -71,7 +71,7 @@ describe('AuthService - Signup Validation Tests', () => {
 
       // Mock slug generation
       (generateOrganizationSlug as jest.Mock).mockResolvedValue(expectedSlug);
-      
+
       // Mock other utilities
       (hashPassword as jest.Mock).mockResolvedValue('hashed-pwd');
       (generateVerificationToken as jest.Mock).mockReturnValue('token-123');
@@ -92,7 +92,7 @@ describe('AuthService - Signup Validation Tests', () => {
             create: jest.fn().mockImplementation((data) => {
               // Verify the slug is being used
               expect(data.data.slug).toBe(expectedSlug);
-              
+
               return Promise.resolve({
                 id: 'org-slug-test',
                 name: signupData.organizationName,
@@ -117,7 +117,7 @@ describe('AuthService - Signup Validation Tests', () => {
       (prisma.$transaction as jest.Mock).mockImplementation(mockTransaction);
 
       // Act
-      const result = await authService.signup(signupData);
+      const result = await signupService.signup(signupData);
 
       // Assert
       expect(generateOrganizationSlug).toHaveBeenCalledWith(signupData.organizationName);
@@ -143,7 +143,7 @@ describe('AuthService - Signup Validation Tests', () => {
 
       // Mock token generation
       (generateVerificationToken as jest.Mock).mockReturnValue(expectedToken);
-      
+
       // Mock other utilities
       (hashPassword as jest.Mock).mockResolvedValue('hashed-pwd');
       (generateOrganizationSlug as jest.Mock).mockResolvedValue('token-test-org');
@@ -178,12 +178,12 @@ describe('AuthService - Signup Validation Tests', () => {
               // Verify the token is being stored
               expect(data.data.token).toBe(expectedToken);
               expect(data.data.expiresAt).toBeInstanceOf(Date);
-              
+
               // Verify expiry is 24 hours from now
               const expiryTime = data.data.expiresAt.getTime();
               const expectedExpiry = Date.now() + 24 * 60 * 60 * 1000;
               expect(Math.abs(expiryTime - expectedExpiry)).toBeLessThan(1000); // Within 1 second
-              
+
               return Promise.resolve({
                 id: 'email-ver-123',
                 token: data.data.token,
@@ -199,19 +199,19 @@ describe('AuthService - Signup Validation Tests', () => {
       (prisma.$transaction as jest.Mock).mockImplementation(mockTransaction);
 
       // Act
-      await authService.signup(signupData);
+      await signupService.signup(signupData);
 
       // Assert
       expect(generateVerificationToken).toHaveBeenCalled();
       expect(generateVerificationToken).toHaveBeenCalledTimes(1);
-      
+
       // Verify token was sent in email
       expect(sendVerificationEmail).toHaveBeenCalledWith(
         expect.objectContaining({
           email: signupData.email,
           firstName: signupData.firstName,
         }),
-        expectedToken
+        expectedToken,
       );
     });
 
@@ -272,20 +272,20 @@ describe('AuthService - Signup Validation Tests', () => {
       });
 
       // Act
-      await authService.signup(signupData);
+      await signupService.signup(signupData);
 
       // Assert
       // Verify password was hashed
       expect(hashPassword).toHaveBeenCalledWith(signupData.password);
-      
+
       // Verify password history was called with correct parameters
       expect(addPasswordToHistory).toHaveBeenCalledWith(
         mockUserId,
         mockHashedPassword,
-        mockTx // Should pass the transaction context
+        mockTx, // Should pass the transaction context
       );
       expect(addPasswordToHistory).toHaveBeenCalledTimes(1);
-      
+
       // Verify it was called after user creation (by checking the userId matches)
       const userCreateCall = mockTx.user.create.mock.calls[0][0];
       expect(userCreateCall.data.passwordHash).toBe(mockHashedPassword);
@@ -348,12 +348,12 @@ describe('AuthService - Signup Validation Tests', () => {
       });
 
       // Act
-      await authService.signup(signupData, ipAddress);
+      await signupService.signup(signupData, ipAddress);
 
       // Assert
       // Verify audit logs were created
       expect(auditService.logAction).toHaveBeenCalledTimes(2);
-      
+
       // Verify user signup audit log
       expect(auditService.logAction).toHaveBeenNthCalledWith(
         1,
@@ -369,7 +369,7 @@ describe('AuthService - Signup Validation Tests', () => {
           },
           ipAddress,
         }),
-        mockTx // Should pass transaction context
+        mockTx, // Should pass transaction context
       );
 
       // Verify organization creation audit log
@@ -387,7 +387,7 @@ describe('AuthService - Signup Validation Tests', () => {
           },
           ipAddress,
         }),
-        mockTx // Should pass transaction context
+        mockTx, // Should pass transaction context
       );
     });
   });

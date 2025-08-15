@@ -1,12 +1,14 @@
 import { Request, Response, NextFunction } from 'express';
 import { AuthController } from '@/modules/auth/controllers/auth.controller';
 import { authService } from '@/modules/auth/services/auth.service';
+import { signupService } from '@/modules/auth/services/signup.service';
 import { getClientIp } from '@/common/utils/ip.utils';
 import { ConflictError, ValidationError } from '@/common/exceptions/app.error';
 import type { SignupInput } from '@/modules/auth/validators/auth.schema';
 
 // Mock dependencies
 jest.mock('@/modules/auth/services/auth.service');
+jest.mock('@/modules/auth/services/signup.service');
 jest.mock('@/common/utils/ip.utils');
 
 describe('AuthController', () => {
@@ -17,7 +19,7 @@ describe('AuthController', () => {
 
   beforeEach(() => {
     authController = new AuthController();
-    
+
     // Reset all mocks
     jest.clearAllMocks();
 
@@ -43,7 +45,7 @@ describe('AuthController', () => {
       };
 
       const expectedIp = '192.168.1.100';
-      
+
       mockReq = {
         body: signupData,
         headers: {
@@ -70,9 +72,9 @@ describe('AuthController', () => {
 
       // Mock getClientIp to return the expected IP
       (getClientIp as jest.Mock).mockReturnValue(expectedIp);
-      
-      // Mock authService.signup
-      (authService.signup as jest.Mock).mockResolvedValue(mockServiceResult);
+
+      // Mock signupService.signup
+      (signupService.signup as jest.Mock).mockResolvedValue(mockServiceResult);
 
       // Act
       await authController.signup(mockReq as Request, mockRes as Response, mockNext);
@@ -82,11 +84,8 @@ describe('AuthController', () => {
       expect(getClientIp).toHaveBeenCalledWith(mockReq);
       expect(getClientIp).toHaveBeenCalledTimes(1);
 
-      // Verify authService.signup was called with the extracted IP
-      expect(authService.signup).toHaveBeenCalledWith(
-        signupData,
-        expectedIp
-      );
+      // Verify signupService.signup was called with the extracted IP
+      expect(signupService.signup).toHaveBeenCalledWith(signupData, expectedIp);
     });
 
     it('should pass data to service correctly', async () => {
@@ -100,7 +99,7 @@ describe('AuthController', () => {
       };
 
       const clientIp = '10.0.0.50';
-      
+
       mockReq = {
         body: signupData,
         headers: {},
@@ -117,7 +116,7 @@ describe('AuthController', () => {
           email: signupData.email,
         },
         organization: {
-          id: 'org-456', 
+          id: 'org-456',
           name: signupData.organizationName,
           slug: 'smith-corp',
         },
@@ -125,25 +124,22 @@ describe('AuthController', () => {
 
       // Mock IP extraction
       (getClientIp as jest.Mock).mockReturnValue(clientIp);
-      
+
       // Mock service call
-      (authService.signup as jest.Mock).mockResolvedValue(mockServiceResult);
+      (signupService.signup as jest.Mock).mockResolvedValue(mockServiceResult);
 
       // Act
       await authController.signup(mockReq as Request, mockRes as Response, mockNext);
 
       // Assert
       // Verify the service was called with the exact data from the request body
-      expect(authService.signup).toHaveBeenCalledWith(
-        signupData,
-        clientIp
-      );
-      
+      expect(signupService.signup).toHaveBeenCalledWith(signupData, clientIp);
+
       // Verify the service was called exactly once
-      expect(authService.signup).toHaveBeenCalledTimes(1);
-      
+      expect(signupService.signup).toHaveBeenCalledTimes(1);
+
       // Verify each field was passed correctly
-      const callArgs = (authService.signup as jest.Mock).mock.calls[0];
+      const callArgs = (signupService.signup as jest.Mock).mock.calls[0];
       expect(callArgs[0]).toEqual(signupData);
       expect(callArgs[0].firstName).toBe('Jane');
       expect(callArgs[0].lastName).toBe('Smith');
@@ -164,7 +160,7 @@ describe('AuthController', () => {
       };
 
       const clientIp = '172.16.0.100';
-      
+
       mockReq = {
         body: signupData,
         headers: {},
@@ -189,7 +185,7 @@ describe('AuthController', () => {
 
       // Mock dependencies
       (getClientIp as jest.Mock).mockReturnValue(clientIp);
-      (authService.signup as jest.Mock).mockResolvedValue(mockServiceResult);
+      (signupService.signup as jest.Mock).mockResolvedValue(mockServiceResult);
 
       // Act
       await authController.signup(mockReq as Request, mockRes as Response, mockNext);
@@ -211,7 +207,9 @@ describe('AuthController', () => {
       expect(jsonCall).toHaveProperty('success', true);
       expect(jsonCall).toHaveProperty('data');
       expect(jsonCall.data).toEqual(mockServiceResult);
-      expect(jsonCall.data.message).toBe('Account created successfully. Please check your email to verify your account.');
+      expect(jsonCall.data.message).toBe(
+        'Account created successfully. Please check your email to verify your account.',
+      );
       expect(jsonCall.data.user.id).toBe('user-789');
       expect(jsonCall.data.organization.slug).toBe('johnson-industries');
     });
@@ -227,7 +225,7 @@ describe('AuthController', () => {
       };
 
       const clientIp = '203.0.113.42';
-      
+
       mockReq = {
         body: signupData,
         headers: {},
@@ -239,10 +237,10 @@ describe('AuthController', () => {
 
       // Test with ConflictError (email already exists)
       const conflictError = new ConflictError('Email already registered');
-      
+
       // Mock dependencies
       (getClientIp as jest.Mock).mockReturnValue(clientIp);
-      (authService.signup as jest.Mock).mockRejectedValue(conflictError);
+      (signupService.signup as jest.Mock).mockRejectedValue(conflictError);
 
       // Act - The method doesn't return a promise directly, it's wrapped by asyncHandler
       // So we need to test the actual behavior when an error occurs
@@ -258,8 +256,8 @@ describe('AuthController', () => {
       expect(mockRes.json).not.toHaveBeenCalled();
 
       // Verify service was called with correct parameters
-      expect(authService.signup).toHaveBeenCalledWith(signupData, clientIp);
-      expect(authService.signup).toHaveBeenCalledTimes(1);
+      expect(signupService.signup).toHaveBeenCalledWith(signupData, clientIp);
+      expect(signupService.signup).toHaveBeenCalledTimes(1);
 
       // Reset mocks for next test
       jest.clearAllMocks();
@@ -269,7 +267,7 @@ describe('AuthController', () => {
       // Test with ValidationError
       const validationError = new ValidationError('Invalid input data');
       (getClientIp as jest.Mock).mockReturnValue(clientIp);
-      (authService.signup as jest.Mock).mockRejectedValue(validationError);
+      (signupService.signup as jest.Mock).mockRejectedValue(validationError);
 
       // Act & Assert - ValidationError
       try {
@@ -290,7 +288,7 @@ describe('AuthController', () => {
       // Test with generic error
       const genericError = new Error('Database connection failed');
       (getClientIp as jest.Mock).mockReturnValue(clientIp);
-      (authService.signup as jest.Mock).mockRejectedValue(genericError);
+      (signupService.signup as jest.Mock).mockRejectedValue(genericError);
 
       // Act & Assert - Generic Error
       try {
@@ -304,7 +302,7 @@ describe('AuthController', () => {
       expect(mockRes.json).not.toHaveBeenCalled();
 
       // Verify service was called before error
-      expect(authService.signup).toHaveBeenCalledWith(signupData, clientIp);
+      expect(signupService.signup).toHaveBeenCalledWith(signupData, clientIp);
     });
   });
 });

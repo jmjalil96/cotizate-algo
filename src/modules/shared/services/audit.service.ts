@@ -12,10 +12,7 @@ export interface AuditLogEntry {
 }
 
 export class AuditService {
-  async logAction(
-    entry: AuditLogEntry,
-    tx?: Prisma.TransactionClient
-  ): Promise<void> {
+  async logAction(entry: AuditLogEntry, tx?: Prisma.TransactionClient): Promise<void> {
     const client = tx || prisma;
     await client.auditLog.create({
       data: {
@@ -37,16 +34,19 @@ export class AuditService {
     resourceId?: string,
     details?: Record<string, any>,
     ipAddress?: string,
-    tx?: Prisma.TransactionClient
+    tx?: Prisma.TransactionClient,
   ): Promise<void> {
-    await this.logAction({
-      userId,
-      action,
-      resource,
-      resourceId,
-      details,
-      ipAddress,
-    }, tx);
+    await this.logAction(
+      {
+        userId,
+        action,
+        resource,
+        resourceId,
+        details,
+        ipAddress,
+      },
+      tx,
+    );
   }
 
   async logOrganizationAction(
@@ -57,17 +57,20 @@ export class AuditService {
     userId?: string,
     details?: Record<string, any>,
     ipAddress?: string,
-    tx?: Prisma.TransactionClient
+    tx?: Prisma.TransactionClient,
   ): Promise<void> {
-    await this.logAction({
-      userId,
-      organizationId,
-      action,
-      resource,
-      resourceId,
-      details,
-      ipAddress,
-    }, tx);
+    await this.logAction(
+      {
+        userId,
+        organizationId,
+        action,
+        resource,
+        resourceId,
+        details,
+        ipAddress,
+      },
+      tx,
+    );
   }
 
   async getAuditLogs(filters: {

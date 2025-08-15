@@ -101,10 +101,8 @@ describe('E2E - Concurrent Auth Operations', () => {
       ];
 
       // Execute all signups concurrently
-      const promises = signupRequests.map(data =>
-        request(app)
-          .post('/api/v1/auth/signup')
-          .send(data)
+      const promises = signupRequests.map((data) =>
+        request(app).post('/api/v1/auth/signup').send(data),
       );
 
       const responses = await Promise.all(promises);
@@ -130,19 +128,19 @@ describe('E2E - Concurrent Auth Operations', () => {
       expect(organizations).toHaveLength(5);
 
       // Verify all have unique IDs
-      const userIds = users.map(u => u.id);
+      const userIds = users.map((u) => u.id);
       const uniqueUserIds = new Set(userIds);
       expect(uniqueUserIds.size).toBe(5);
 
-      const orgIds = organizations.map(o => o.id);
+      const orgIds = organizations.map((o) => o.id);
       const uniqueOrgIds = new Set(orgIds);
       expect(uniqueOrgIds.size).toBe(5);
 
       // Verify each user has verification token
       const verificationTokens = await prisma.emailVerification.findMany();
       expect(verificationTokens).toHaveLength(5);
-      
-      const tokenValues = verificationTokens.map(t => t.token);
+
+      const tokenValues = verificationTokens.map((t) => t.token);
       const uniqueTokens = new Set(tokenValues);
       expect(uniqueTokens.size).toBe(5); // All tokens unique
     });
@@ -165,26 +163,22 @@ describe('E2E - Concurrent Auth Operations', () => {
       ];
 
       // Execute concurrently
-      const promises = requests.map(data =>
-        request(app)
-          .post('/api/v1/auth/signup')
-          .send(data)
-      );
+      const promises = requests.map((data) => request(app).post('/api/v1/auth/signup').send(data));
 
       const responses = await Promise.all(promises);
 
       // Count successes and failures
-      const successes = responses.filter(r => r.status === 201);
-      const failures = responses.filter(r => r.status === 409);
+      const successes = responses.filter((r) => r.status === 201);
+      const failures = responses.filter((r) => r.status === 409);
 
       // At least one should succeed, others should fail
       // Due to transaction isolation, sometimes multiple might succeed temporarily
       expect(successes.length).toBeGreaterThanOrEqual(1);
       expect(successes.length).toBeLessThanOrEqual(3);
-      
+
       // If there are failures, check the message
       if (failures.length > 0) {
-        failures.forEach(response => {
+        failures.forEach((response) => {
           expect(response.body.error.message).toContain('Email already registered');
         });
       }
@@ -224,17 +218,13 @@ describe('E2E - Concurrent Auth Operations', () => {
       ];
 
       // Execute concurrently
-      const promises = requests.map(data =>
-        request(app)
-          .post('/api/v1/auth/signup')
-          .send(data)
-      );
+      const promises = requests.map((data) => request(app).post('/api/v1/auth/signup').send(data));
 
       const responses = await Promise.all(promises);
 
       // Count successes and failures
-      const successes = responses.filter(r => r.status === 201);
-      const failures = responses.filter(r => r.status === 409);
+      const successes = responses.filter((r) => r.status === 201);
+      const failures = responses.filter((r) => r.status === 409);
 
       // At least one should succeed
       expect(successes.length).toBeGreaterThanOrEqual(1);
@@ -242,7 +232,7 @@ describe('E2E - Concurrent Auth Operations', () => {
 
       // If there are failures, check the message
       if (failures.length > 0) {
-        failures.forEach(response => {
+        failures.forEach((response) => {
           expect(response.body.error.message).toContain('Organization name already taken');
         });
       }
@@ -299,28 +289,24 @@ describe('E2E - Concurrent Auth Operations', () => {
       ];
 
       // Execute concurrently
-      const promises = requests.map(data =>
-        request(app)
-          .post('/api/v1/auth/signup')
-          .send(data)
-      );
+      const promises = requests.map((data) => request(app).post('/api/v1/auth/signup').send(data));
 
       const responses = await Promise.all(promises);
 
       // Count successes and failures
-      const successes = responses.filter(r => r.status === 201);
-      const failures = responses.filter(r => r.status === 409);
+      const successes = responses.filter((r) => r.status === 201);
+      const failures = responses.filter((r) => r.status === 409);
 
       // Should have some successes
       expect(successes.length).toBeGreaterThanOrEqual(1);
-      
+
       // Get all created organizations
       const organizations = await prisma.organization.findMany({
         orderBy: { slug: 'asc' },
       });
 
       // All created orgs should have unique slugs
-      const slugs = organizations.map(o => o.slug);
+      const slugs = organizations.map((o) => o.slug);
       const uniqueSlugs = new Set(slugs);
       expect(uniqueSlugs.size).toBe(organizations.length);
 
@@ -328,20 +314,18 @@ describe('E2E - Concurrent Auth Operations', () => {
       if (organizations.length > 1) {
         // Check that slugs are unique and follow expected pattern
         const baseSlug = 'slug-test-corp';
-        
+
         // At least one should have the base slug
-        const hasBaseSlug = slugs.some(s => s === baseSlug);
+        const hasBaseSlug = slugs.some((s) => s === baseSlug);
         if (organizations.length >= 2) {
           expect(hasBaseSlug).toBe(true);
         }
-        
+
         // Others should have suffixes if there were collisions
-        slugs.forEach(slug => {
+        slugs.forEach((slug) => {
           // Should be related to the base slug
           expect(
-            slug === baseSlug || 
-            slug.startsWith(`${baseSlug}-`) ||
-            slug.includes('slug') // At minimum contains 'slug'
+            slug === baseSlug || slug.startsWith(`${baseSlug}-`) || slug.includes('slug'), // At minimum contains 'slug'
           ).toBe(true);
         });
       }
@@ -367,16 +351,14 @@ describe('E2E - Concurrent Auth Operations', () => {
       }));
 
       // Execute all concurrently
-      const promises = signupRequests.map(data =>
-        request(app)
-          .post('/api/v1/auth/signup')
-          .send(data)
+      const promises = signupRequests.map((data) =>
+        request(app).post('/api/v1/auth/signup').send(data),
       );
 
       const responses = await Promise.all(promises);
 
       // All should succeed
-      const successCount = responses.filter(r => r.status === 201).length;
+      const successCount = responses.filter((r) => r.status === 201).length;
       expect(successCount).toBe(10);
 
       // Verify data integrity
@@ -399,19 +381,19 @@ describe('E2E - Concurrent Auth Operations', () => {
 
       // Verify all relationships are intact
       for (const user of users) {
-        const profile = profiles.find(p => p.userId === user.id);
+        const profile = profiles.find((p) => p.userId === user.id);
         expect(profile).toBeTruthy();
 
-        const orgUser = orgUsers.find(ou => ou.userId === user.id);
+        const orgUser = orgUsers.find((ou) => ou.userId === user.id);
         expect(orgUser).toBeTruthy();
 
-        const verificationToken = verificationTokens.find(vt => vt.userId === user.id);
+        const verificationToken = verificationTokens.find((vt) => vt.userId === user.id);
         expect(verificationToken).toBeTruthy();
 
-        const passwordHistory = passwordHistories.find(ph => ph.userId === user.id);
+        const passwordHistory = passwordHistories.find((ph) => ph.userId === user.id);
         expect(passwordHistory).toBeTruthy();
 
-        const userAuditLogs = auditLogs.filter(al => al.userId === user.id);
+        const userAuditLogs = auditLogs.filter((al) => al.userId === user.id);
         expect(userAuditLogs).toHaveLength(2);
       }
     });

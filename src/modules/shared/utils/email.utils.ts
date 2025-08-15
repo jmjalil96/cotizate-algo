@@ -27,11 +27,11 @@ const emailQueue: EmailOptions[] = [];
  */
 function createTransporter(): Transporter | null {
   const provider = process.env.EMAIL_PROVIDER || 'console';
-  
+
   if (provider === 'console') {
     return null;
   }
-  
+
   if (provider === 'inbucket') {
     return nodemailer.createTransport({
       host: process.env.SMTP_HOST || 'localhost',
@@ -42,7 +42,7 @@ function createTransporter(): Transporter | null {
       },
     });
   }
-  
+
   if (provider === 'smtp') {
     return nodemailer.createTransport({
       host: process.env.SMTP_HOST,
@@ -54,7 +54,7 @@ function createTransporter(): Transporter | null {
       },
     });
   }
-  
+
   logger.warn(`Unknown email provider: ${provider}, falling back to console`);
   return null;
 }
@@ -62,22 +62,19 @@ function createTransporter(): Transporter | null {
 /**
  * Render email template
  */
-export function renderTemplate(
-  templateName: string,
-  data: Record<string, any>
-): EmailTemplate {
+export function renderTemplate(templateName: string, data: Record<string, any>): EmailTemplate {
   const templates: Record<string, (data: any) => EmailTemplate> = {
     verification: renderVerificationEmail,
     passwordReset: renderPasswordResetEmail,
     invitation: renderInvitationEmail,
     welcome: renderWelcomeEmail,
   };
-  
+
   const renderer = templates[templateName];
   if (!renderer) {
     throw new Error(`Email template "${templateName}" not found`);
   }
-  
+
   return renderer(data);
 }
 
@@ -89,7 +86,7 @@ export async function queueEmail(options: EmailOptions): Promise<void> {
     from: options.from || process.env.EMAIL_FROM || 'noreply@example.com',
     ...options,
   });
-  
+
   // In production, use a proper queue like Bull/BullMQ
   // For now, process immediately
   await processEmailQueue();
@@ -100,7 +97,7 @@ export async function queueEmail(options: EmailOptions): Promise<void> {
  */
 async function processEmailQueue(): Promise<void> {
   const transporter = createTransporter();
-  
+
   while (emailQueue.length > 0) {
     const email = emailQueue.shift();
     if (email) {
@@ -114,34 +111,43 @@ async function processEmailQueue(): Promise<void> {
             html: email.html,
             text: email.text,
           });
-          
-          logger.info({
-            to: email.to,
-            subject: email.subject,
-            messageId: info.messageId,
-            provider: process.env.EMAIL_PROVIDER,
-          }, 'Email sent successfully');
-          
+
+          logger.info(
+            {
+              to: email.to,
+              subject: email.subject,
+              messageId: info.messageId,
+              provider: process.env.EMAIL_PROVIDER,
+            },
+            'Email sent successfully',
+          );
+
           if (process.env.EMAIL_PROVIDER === 'inbucket') {
             logger.info('View email at: http://localhost:9000');
           }
         } else {
           // Console fallback
-          logger.info({
-            to: email.to,
-            subject: email.subject,
-          }, 'Email (console mode)');
-          
+          logger.info(
+            {
+              to: email.to,
+              subject: email.subject,
+            },
+            'Email (console mode)',
+          );
+
           if (env.NODE_ENV === 'development') {
             logger.debug({ email }, 'Email content');
           }
         }
       } catch (error) {
-        logger.error({
-          error,
-          to: email.to,
-          subject: email.subject,
-        }, 'Failed to send email');
+        logger.error(
+          {
+            error,
+            to: email.to,
+            subject: email.subject,
+          },
+          'Failed to send email',
+        );
       }
     }
   }
@@ -152,15 +158,15 @@ async function processEmailQueue(): Promise<void> {
  */
 export async function sendVerificationEmail(
   user: { email: string; firstName: string },
-  token: string
+  token: string,
 ): Promise<void> {
   const verificationUrl = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/verify-email?token=${token}`;
-  
+
   const template = renderVerificationEmail({
     firstName: user.firstName,
     verificationUrl,
   });
-  
+
   await queueEmail({
     to: user.email,
     ...template,
@@ -172,15 +178,15 @@ export async function sendVerificationEmail(
  */
 export async function sendPasswordResetEmail(
   user: { email: string; firstName: string },
-  token: string
+  token: string,
 ): Promise<void> {
   const resetUrl = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/reset-password?token=${token}`;
-  
+
   const template = renderPasswordResetEmail({
     firstName: user.firstName,
     resetUrl,
   });
-  
+
   await queueEmail({
     to: user.email,
     ...template,
@@ -194,16 +200,16 @@ export async function sendInvitationEmail(
   email: string,
   organization: { name: string },
   inviter: { firstName: string; lastName: string },
-  token: string
+  token: string,
 ): Promise<void> {
   const inviteUrl = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/accept-invite?token=${token}`;
-  
+
   const template = renderInvitationEmail({
     organizationName: organization.name,
     inviterName: `${inviter.firstName} ${inviter.lastName}`,
     inviteUrl,
   });
-  
+
   await queueEmail({
     to: email,
     ...template,
@@ -269,10 +275,7 @@ If you didn't create an account, you can safely ignore this email.
   };
 }
 
-function renderPasswordResetEmail(data: {
-  firstName: string;
-  resetUrl: string;
-}): EmailTemplate {
+function renderPasswordResetEmail(data: { firstName: string; resetUrl: string }): EmailTemplate {
   return {
     subject: 'Reset your password',
     html: `
@@ -385,10 +388,7 @@ If you don't want to join, you can safely ignore this email.
   };
 }
 
-function renderWelcomeEmail(data: {
-  firstName: string;
-  organizationName: string;
-}): EmailTemplate {
+function renderWelcomeEmail(data: { firstName: string; organizationName: string }): EmailTemplate {
   return {
     subject: `Welcome to ${data.organizationName}!`,
     html: `

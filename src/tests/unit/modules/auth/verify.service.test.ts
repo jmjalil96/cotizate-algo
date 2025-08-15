@@ -1,4 +1,4 @@
-import { AuthService } from '@/modules/auth/services/auth.service';
+import { VerificationService } from '@/modules/auth/services/verification.service';
 import { prisma } from '@/core/database/prisma.client';
 import { sessionService } from '@/modules/auth/services/session.service';
 import { generateAccessToken } from '@/modules/auth/utils/jwt.utils';
@@ -32,11 +32,11 @@ jest.mock('@/modules/shared/services/audit.service', () => ({
   },
 }));
 
-describe('AuthService - Verify Tests', () => {
-  let authService: AuthService;
-  
+describe('VerificationService - Verify Tests', () => {
+  let verificationService: VerificationService;
+
   beforeEach(() => {
-    authService = new AuthService();
+    verificationService = new VerificationService();
     jest.clearAllMocks();
   });
 
@@ -76,7 +76,8 @@ describe('AuthService - Verify Tests', () => {
               userId: mockUserId,
               organizationId: mockOrgId, // This is the field used for audit and token
               roleId: 'role-owner-123',
-              organization: { // This is the relation used for the response
+              organization: {
+                // This is the relation used for the response
                 id: mockOrgId,
                 name: 'Test Organization',
                 slug: 'test-organization',
@@ -132,7 +133,7 @@ describe('AuthService - Verify Tests', () => {
       (generateAccessToken as jest.Mock).mockReturnValue(mockAccessToken);
 
       // Act
-      const result = await authService.verify(verifyToken, ipAddress, userAgent);
+      const result = await verificationService.verify(verifyToken, ipAddress, userAgent);
 
       // Assert - Check the response structure
       expect(result).toEqual({
@@ -201,7 +202,7 @@ describe('AuthService - Verify Tests', () => {
           },
           ipAddress,
         },
-        expect.anything() // tx parameter
+        expect.anything(), // tx parameter
       );
 
       // Verify access token generation with correct organizationId
@@ -223,8 +224,9 @@ describe('AuthService - Verify Tests', () => {
       (prisma.emailVerification.findUnique as jest.Mock).mockResolvedValue(null);
 
       // Act & Assert
-      await expect(authService.verify(invalidToken, ipAddress, userAgent))
-        .rejects.toThrow('Invalid or expired verification token');
+      await expect(verificationService.verify(invalidToken, ipAddress, userAgent)).rejects.toThrow(
+        'Invalid or expired verification token',
+      );
 
       // Verify email verification lookup was attempted
       expect(prisma.emailVerification.findUnique).toHaveBeenCalledWith({
@@ -301,8 +303,9 @@ describe('AuthService - Verify Tests', () => {
       (prisma.emailVerification.findUnique as jest.Mock).mockResolvedValue(mockExpiredVerification);
 
       // Act & Assert
-      await expect(authService.verify(expiredToken, ipAddress, userAgent))
-        .rejects.toThrow('Verification token has expired');
+      await expect(verificationService.verify(expiredToken, ipAddress, userAgent)).rejects.toThrow(
+        'Verification token has expired',
+      );
 
       // Verify email verification lookup was called
       expect(prisma.emailVerification.findUnique).toHaveBeenCalledWith({
@@ -364,11 +367,14 @@ describe('AuthService - Verify Tests', () => {
         },
       };
 
-      (prisma.emailVerification.findUnique as jest.Mock).mockResolvedValue(mockVerificationWithoutOrg);
+      (prisma.emailVerification.findUnique as jest.Mock).mockResolvedValue(
+        mockVerificationWithoutOrg,
+      );
 
       // Act & Assert
-      await expect(authService.verify(validToken, ipAddress, userAgent))
-        .rejects.toThrow('Organization not found');
+      await expect(verificationService.verify(validToken, ipAddress, userAgent)).rejects.toThrow(
+        'Organization not found',
+      );
 
       // Verify email verification lookup was called
       expect(prisma.emailVerification.findUnique).toHaveBeenCalledWith({

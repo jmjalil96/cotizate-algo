@@ -81,35 +81,35 @@ export function validateSlug(slug: string): {
   errors: string[];
 } {
   const errors: string[] = [];
-  
+
   if (!slug) {
     errors.push('Slug cannot be empty');
   }
-  
+
   if (slug.length < 3) {
     errors.push('Slug must be at least 3 characters');
   }
-  
+
   if (slug.length > 63) {
     errors.push('Slug must be less than 64 characters');
   }
-  
+
   if (!/^[a-z0-9-]+$/.test(slug)) {
     errors.push('Slug can only contain lowercase letters, numbers, and hyphens');
   }
-  
+
   if (slug.startsWith('-') || slug.endsWith('-')) {
     errors.push('Slug cannot start or end with a hyphen');
   }
-  
+
   if (slug.includes('--')) {
     errors.push('Slug cannot contain consecutive hyphens');
   }
-  
+
   if (isReservedSlug(slug)) {
     errors.push('This slug is reserved and cannot be used');
   }
-  
+
   return {
     isValid: errors.length === 0,
     errors,
@@ -121,12 +121,12 @@ export function validateSlug(slug: string): {
  */
 export async function ensureUniqueOrganizationSlug(
   baseSlug: string,
-  excludeId?: string
+  excludeId?: string,
 ): Promise<string> {
   let slug = baseSlug;
   let counter = 0;
   const maxAttempts = 10;
-  
+
   while (counter < maxAttempts) {
     const existing = await prisma.organization.findFirst({
       where: {
@@ -134,15 +134,15 @@ export async function ensureUniqueOrganizationSlug(
         ...(excludeId && { NOT: { id: excludeId } }),
       },
     });
-    
+
     if (!existing) {
       return slug;
     }
-    
+
     counter++;
     slug = `${baseSlug}-${randomInt(1000, 9999)}`;
   }
-  
+
   slug = `${baseSlug}-${Date.now()}`;
   return slug;
 }
@@ -150,17 +150,14 @@ export async function ensureUniqueOrganizationSlug(
 /**
  * Generate slug from organization name
  */
-export async function generateOrganizationSlug(
-  name: string,
-  excludeId?: string
-): Promise<string> {
+export async function generateOrganizationSlug(name: string, excludeId?: string): Promise<string> {
   const baseSlug = generateSlug(name);
-  
+
   if (isReservedSlug(baseSlug)) {
     const modifiedSlug = `${baseSlug}-org`;
     return ensureUniqueOrganizationSlug(modifiedSlug, excludeId);
   }
-  
+
   return ensureUniqueOrganizationSlug(baseSlug, excludeId);
 }
 
@@ -169,7 +166,7 @@ export async function generateOrganizationSlug(
  */
 export async function suggestAlternativeSlugs(
   baseSlug: string,
-  count: number = 3
+  count: number = 3,
 ): Promise<string[]> {
   const suggestions: string[] = [];
   const variations = [
@@ -180,32 +177,32 @@ export async function suggestAlternativeSlugs(
     `${baseSlug}-group`,
     `${baseSlug}-${new Date().getFullYear()}`,
   ];
-  
+
   for (const variation of variations) {
     if (suggestions.length >= count) break;
-    
+
     const existing = await prisma.organization.findFirst({
       where: { slug: variation },
     });
-    
+
     if (!existing && !isReservedSlug(variation)) {
       suggestions.push(variation);
     }
   }
-  
+
   while (suggestions.length < count) {
     const randomSuffix = randomInt(100, 999);
     const randomSlug = `${baseSlug}-${randomSuffix}`;
-    
+
     const existing = await prisma.organization.findFirst({
       where: { slug: randomSlug },
     });
-    
+
     if (!existing) {
       suggestions.push(randomSlug);
     }
   }
-  
+
   return suggestions;
 }
 

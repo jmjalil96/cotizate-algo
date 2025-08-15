@@ -15,14 +15,14 @@ import {
 export function getExpiryDate(duration: string): Date {
   const now = new Date();
   const match = duration.match(/^(\d+)([mhd])$/);
-  
+
   if (!match) {
     throw new Error(`Invalid duration format: ${duration}`);
   }
-  
+
   const [, value, unit] = match;
   const amount = parseInt(value, 10);
-  
+
   switch (unit) {
     case 'm':
       return add(now, { minutes: amount });
@@ -56,11 +56,11 @@ export function isFuture(date: Date | string): boolean {
  */
 export function timeUntilExpiry(date: Date | string): string {
   const dateObj = typeof date === 'string' ? parseISO(date) : date;
-  
+
   if (isExpired(dateObj)) {
     return 'Expired';
   }
-  
+
   return formatDistanceToNow(dateObj, { addSuffix: true });
 }
 
@@ -70,7 +70,7 @@ export function timeUntilExpiry(date: Date | string): string {
 export function timeBetween(date1: Date | string, date2: Date | string): string {
   const dateObj1 = typeof date1 === 'string' ? parseISO(date1) : date1;
   const dateObj2 = typeof date2 === 'string' ? parseISO(date2) : date2;
-  
+
   return formatDistance(dateObj1, dateObj2);
 }
 
@@ -121,11 +121,11 @@ export function calculateAge(birthDate: Date | string): number {
   const today = new Date();
   let age = today.getFullYear() - birth.getFullYear();
   const monthDiff = today.getMonth() - birth.getMonth();
-  
+
   if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birth.getDate())) {
     age--;
   }
-  
+
   return age;
 }
 
@@ -135,12 +135,12 @@ export function calculateAge(birthDate: Date | string): number {
 export function isWithinRange(
   date: Date | string,
   startDate: Date | string,
-  endDate: Date | string
+  endDate: Date | string,
 ): boolean {
   const dateObj = typeof date === 'string' ? parseISO(date) : date;
   const start = typeof startDate === 'string' ? parseISO(startDate) : startDate;
   const end = typeof endDate === 'string' ? parseISO(endDate) : endDate;
-  
+
   return isAfter(dateObj, start) && isBefore(dateObj, end);
 }
 
@@ -165,7 +165,7 @@ export function millisecondsToDuration(ms: number): {
   const minutes = Math.floor(seconds / 60);
   const hours = Math.floor(minutes / 60);
   const days = Math.floor(hours / 24);
-  
+
   return {
     days,
     hours: hours % 24,

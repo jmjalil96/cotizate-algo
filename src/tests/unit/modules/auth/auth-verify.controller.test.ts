@@ -1,12 +1,14 @@
 import { Request, Response, NextFunction } from 'express';
 import { AuthController } from '@/modules/auth/controllers/auth.controller';
 import { authService } from '@/modules/auth/services/auth.service';
+import { verificationService } from '@/modules/auth/services/verification.service';
 import { getClientIp } from '@/common/utils/ip.utils';
 import { NotFoundError, UnauthorizedError } from '@/common/exceptions/app.error';
 import type { EmailVerificationInput } from '@/modules/auth/validators/auth.schema';
 
 // Mock dependencies
 jest.mock('@/modules/auth/services/auth.service');
+jest.mock('@/modules/auth/services/verification.service');
 jest.mock('@/common/utils/ip.utils');
 
 describe('AuthController - Verify Endpoint', () => {
@@ -17,7 +19,7 @@ describe('AuthController - Verify Endpoint', () => {
 
   beforeEach(() => {
     authController = new AuthController();
-    
+
     // Reset all mocks
     jest.clearAllMocks();
 
@@ -36,7 +38,7 @@ describe('AuthController - Verify Endpoint', () => {
       const verificationToken = 'valid-verification-token-123';
       const expectedIp = '192.168.10.50';
       const expectedUserAgent = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/91.0';
-      
+
       const verifyData: EmailVerificationInput = {
         token: verificationToken,
       };
@@ -71,9 +73,9 @@ describe('AuthController - Verify Endpoint', () => {
 
       // Mock getClientIp to return the expected IP
       (getClientIp as jest.Mock).mockReturnValue(expectedIp);
-      
-      // Mock authService.verify
-      (authService.verify as jest.Mock).mockResolvedValue(mockServiceResult);
+
+      // Mock verificationService.verify
+      (verificationService.verify as jest.Mock).mockResolvedValue(mockServiceResult);
 
       // Act
       await authController.verify(mockReq as Request, mockRes as Response, mockNext);
@@ -83,18 +85,18 @@ describe('AuthController - Verify Endpoint', () => {
       expect(getClientIp).toHaveBeenCalledWith(mockReq);
       expect(getClientIp).toHaveBeenCalledTimes(1);
 
-      // Verify authService.verify was called with token, IP, and user agent
-      expect(authService.verify).toHaveBeenCalledWith(
+      // Verify verificationService.verify was called with token, IP, and user agent
+      expect(verificationService.verify).toHaveBeenCalledWith(
         verificationToken,
         expectedIp,
-        expectedUserAgent
+        expectedUserAgent,
       );
-      
+
       // Verify the user agent was correctly extracted from headers
-      expect(authService.verify).toHaveBeenCalledWith(
+      expect(verificationService.verify).toHaveBeenCalledWith(
         expect.any(String),
         expect.any(String),
-        expectedUserAgent
+        expectedUserAgent,
       );
     });
 
@@ -103,7 +105,7 @@ describe('AuthController - Verify Endpoint', () => {
       const verificationToken = 'specific-token-to-verify-abc123';
       const clientIp = '10.20.30.40';
       const userAgent = 'Mozilla/5.0 (X11; Linux x86_64) Firefox/89.0';
-      
+
       const verifyData: EmailVerificationInput = {
         token: verificationToken,
       };
@@ -137,28 +139,28 @@ describe('AuthController - Verify Endpoint', () => {
 
       // Mock dependencies
       (getClientIp as jest.Mock).mockReturnValue(clientIp);
-      (authService.verify as jest.Mock).mockResolvedValue(mockServiceResult);
+      (verificationService.verify as jest.Mock).mockResolvedValue(mockServiceResult);
 
       // Act
       await authController.verify(mockReq as Request, mockRes as Response, mockNext);
 
       // Assert
       // Verify the service was called with the exact token from the request body
-      expect(authService.verify).toHaveBeenCalledWith(
+      expect(verificationService.verify).toHaveBeenCalledWith(
         verificationToken,
         clientIp,
-        userAgent
+        userAgent,
       );
-      
+
       // Verify the service was called exactly once
-      expect(authService.verify).toHaveBeenCalledTimes(1);
-      
+      expect(verificationService.verify).toHaveBeenCalledTimes(1);
+
       // Verify each parameter was passed correctly
-      const callArgs = (authService.verify as jest.Mock).mock.calls[0];
+      const callArgs = (verificationService.verify as jest.Mock).mock.calls[0];
       expect(callArgs[0]).toBe(verificationToken);
       expect(callArgs[1]).toBe(clientIp);
       expect(callArgs[2]).toBe(userAgent);
-      
+
       // Verify the token is extracted from req.body.token specifically
       expect(callArgs[0]).toBe(mockReq.body.token);
     });
@@ -168,7 +170,7 @@ describe('AuthController - Verify Endpoint', () => {
       const verificationToken = 'success-token-789xyz';
       const clientIp = '172.20.0.50';
       const userAgent = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) Safari/14.1';
-      
+
       const verifyData: EmailVerificationInput = {
         token: verificationToken,
       };
@@ -202,7 +204,7 @@ describe('AuthController - Verify Endpoint', () => {
 
       // Mock dependencies
       (getClientIp as jest.Mock).mockReturnValue(clientIp);
-      (authService.verify as jest.Mock).mockResolvedValue(mockServiceResult);
+      (verificationService.verify as jest.Mock).mockResolvedValue(mockServiceResult);
 
       // Act
       await authController.verify(mockReq as Request, mockRes as Response, mockNext);
@@ -220,7 +222,7 @@ describe('AuthController - Verify Endpoint', () => {
       expect(jsonCall).toHaveProperty('success', true);
       expect(jsonCall).toHaveProperty('data');
       expect(jsonCall.data).toEqual(mockServiceResult);
-      
+
       // Verify specific fields in the response
       expect(jsonCall.data.accessToken).toBe('jwt.eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.success');
       expect(jsonCall.data.refreshToken).toBe('refresh-token-success-789');
@@ -231,7 +233,7 @@ describe('AuthController - Verify Endpoint', () => {
       expect(jsonCall.data.organization.id).toBe('org-success-789');
       expect(jsonCall.data.organization.name).toBe('Success Organization');
       expect(jsonCall.data.organization.slug).toBe('success-organization');
-      
+
       // Note: Unlike signup, verify doesn't call res.status() as it uses default 200
       // So we don't test for status call
     });
@@ -241,7 +243,7 @@ describe('AuthController - Verify Endpoint', () => {
       const verificationToken = 'error-test-token';
       const clientIp = '203.0.113.100';
       const userAgent = 'Mozilla/5.0 Error Test Agent';
-      
+
       const verifyData: EmailVerificationInput = {
         token: verificationToken,
       };
@@ -259,10 +261,10 @@ describe('AuthController - Verify Endpoint', () => {
 
       // Test with NotFoundError (invalid token)
       const notFoundError = new NotFoundError('Invalid or expired verification token');
-      
+
       // Mock dependencies
       (getClientIp as jest.Mock).mockReturnValue(clientIp);
-      (authService.verify as jest.Mock).mockRejectedValue(notFoundError);
+      (verificationService.verify as jest.Mock).mockRejectedValue(notFoundError);
 
       // Act & Assert - NotFoundError
       try {
@@ -276,8 +278,12 @@ describe('AuthController - Verify Endpoint', () => {
       expect(mockRes.json).not.toHaveBeenCalled();
 
       // Verify service was called with correct parameters
-      expect(authService.verify).toHaveBeenCalledWith(verificationToken, clientIp, userAgent);
-      expect(authService.verify).toHaveBeenCalledTimes(1);
+      expect(verificationService.verify).toHaveBeenCalledWith(
+        verificationToken,
+        clientIp,
+        userAgent,
+      );
+      expect(verificationService.verify).toHaveBeenCalledTimes(1);
 
       // Reset mocks for next test
       jest.clearAllMocks();
@@ -286,7 +292,7 @@ describe('AuthController - Verify Endpoint', () => {
       // Test with UnauthorizedError (expired token)
       const unauthorizedError = new UnauthorizedError('Verification token has expired');
       (getClientIp as jest.Mock).mockReturnValue(clientIp);
-      (authService.verify as jest.Mock).mockRejectedValue(unauthorizedError);
+      (verificationService.verify as jest.Mock).mockRejectedValue(unauthorizedError);
 
       // Act & Assert - UnauthorizedError
       try {
@@ -305,7 +311,7 @@ describe('AuthController - Verify Endpoint', () => {
       // Test with NotFoundError (organization not found)
       const orgNotFoundError = new NotFoundError('Organization not found');
       (getClientIp as jest.Mock).mockReturnValue(clientIp);
-      (authService.verify as jest.Mock).mockRejectedValue(orgNotFoundError);
+      (verificationService.verify as jest.Mock).mockRejectedValue(orgNotFoundError);
 
       // Act & Assert - Organization NotFoundError
       try {
@@ -324,7 +330,7 @@ describe('AuthController - Verify Endpoint', () => {
       // Test with generic error
       const genericError = new Error('Unexpected database error');
       (getClientIp as jest.Mock).mockReturnValue(clientIp);
-      (authService.verify as jest.Mock).mockRejectedValue(genericError);
+      (verificationService.verify as jest.Mock).mockRejectedValue(genericError);
 
       // Act & Assert - Generic Error
       try {
@@ -337,7 +343,11 @@ describe('AuthController - Verify Endpoint', () => {
       expect(mockRes.json).not.toHaveBeenCalled();
 
       // Verify service was called before error
-      expect(authService.verify).toHaveBeenCalledWith(verificationToken, clientIp, userAgent);
+      expect(verificationService.verify).toHaveBeenCalledWith(
+        verificationToken,
+        clientIp,
+        userAgent,
+      );
     });
   });
 });

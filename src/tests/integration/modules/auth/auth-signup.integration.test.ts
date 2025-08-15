@@ -83,7 +83,7 @@ describe('Auth Integration - Signup Endpoint', () => {
       expect(response.status).toBe(201);
       expect(response.body).toHaveProperty('success', true);
       expect(response.body).toHaveProperty('data');
-      
+
       const { data } = response.body;
       expect(data).toHaveProperty('message');
       expect(data.message).toContain('Account created successfully');
@@ -155,9 +155,7 @@ describe('Auth Integration - Signup Endpoint', () => {
       };
 
       // Act
-      const response = await request(app)
-        .post('/api/v1/auth/signup')
-        .send(signupData);
+      const response = await request(app).post('/api/v1/auth/signup').send(signupData);
 
       // Assert
       expect(response.status).toBe(201);
@@ -231,26 +229,30 @@ describe('Auth Integration - Signup Endpoint', () => {
         orderBy: { createdAt: 'asc' },
       });
       expect(auditLogs).toHaveLength(2);
-      
+
       // First audit log - user signup
       expect(auditLogs[0].action).toBe('user.signup');
       expect(auditLogs[0].resource).toBe('user');
       expect(auditLogs[0].resourceId).toBe(userId);
-      expect(auditLogs[0].details).toEqual(expect.objectContaining({
-        email: signupData.email.toLowerCase(),
-        firstName: signupData.firstName,
-        lastName: signupData.lastName,
-      }));
-      
+      expect(auditLogs[0].details).toEqual(
+        expect.objectContaining({
+          email: signupData.email.toLowerCase(),
+          firstName: signupData.firstName,
+          lastName: signupData.lastName,
+        }),
+      );
+
       // Second audit log - organization create
       expect(auditLogs[1].action).toBe('organization.create');
       expect(auditLogs[1].resource).toBe('organization');
       expect(auditLogs[1].resourceId).toBe(organization!.id);
       expect(auditLogs[1].organizationId).toBe(organization!.id);
-      expect(auditLogs[1].details).toEqual(expect.objectContaining({
-        name: signupData.organizationName,
-        slug: organization!.slug,
-      }));
+      expect(auditLogs[1].details).toEqual(
+        expect.objectContaining({
+          name: signupData.organizationName,
+          slug: organization!.slug,
+        }),
+      );
     });
 
     it('should not create session before verification', async () => {
@@ -264,9 +266,7 @@ describe('Auth Integration - Signup Endpoint', () => {
       };
 
       // Act
-      const response = await request(app)
-        .post('/api/v1/auth/signup')
-        .send(signupData);
+      const response = await request(app).post('/api/v1/auth/signup').send(signupData);
 
       // Assert
       expect(response.status).toBe(201);
@@ -306,72 +306,60 @@ describe('Auth Integration - Signup Endpoint', () => {
       expect(response.body.data).not.toHaveProperty('accessToken');
       expect(response.body.data).not.toHaveProperty('refreshToken');
       expect(response.body.data).not.toHaveProperty('tokens');
-      
+
       // Verify response includes message about email verification
       expect(response.body.data.message).toContain('check your email');
     });
 
     it('should validate required fields', async () => {
       // Test missing firstName
-      let response = await request(app)
-        .post('/api/v1/auth/signup')
-        .send({
-          lastName: 'Doe',
-          email: 'test@example.com',
-          organizationName: 'Test Org',
-          password: 'Pass123!',
-        });
+      let response = await request(app).post('/api/v1/auth/signup').send({
+        lastName: 'Doe',
+        email: 'test@example.com',
+        organizationName: 'Test Org',
+        password: 'Pass123!',
+      });
       expect(response.status).toBe(400);
       expect(response.body.error).toBeTruthy();
 
       // Test missing lastName
-      response = await request(app)
-        .post('/api/v1/auth/signup')
-        .send({
-          firstName: 'John',
-          email: 'test@example.com',
-          organizationName: 'Test Org',
-          password: 'Pass123!',
-        });
+      response = await request(app).post('/api/v1/auth/signup').send({
+        firstName: 'John',
+        email: 'test@example.com',
+        organizationName: 'Test Org',
+        password: 'Pass123!',
+      });
       expect(response.status).toBe(400);
 
       // Test missing email
-      response = await request(app)
-        .post('/api/v1/auth/signup')
-        .send({
-          firstName: 'John',
-          lastName: 'Doe',
-          organizationName: 'Test Org',
-          password: 'Pass123!',
-        });
+      response = await request(app).post('/api/v1/auth/signup').send({
+        firstName: 'John',
+        lastName: 'Doe',
+        organizationName: 'Test Org',
+        password: 'Pass123!',
+      });
       expect(response.status).toBe(400);
 
       // Test missing organizationName
-      response = await request(app)
-        .post('/api/v1/auth/signup')
-        .send({
-          firstName: 'John',
-          lastName: 'Doe',
-          email: 'test@example.com',
-          password: 'Pass123!',
-        });
+      response = await request(app).post('/api/v1/auth/signup').send({
+        firstName: 'John',
+        lastName: 'Doe',
+        email: 'test@example.com',
+        password: 'Pass123!',
+      });
       expect(response.status).toBe(400);
 
       // Test missing password
-      response = await request(app)
-        .post('/api/v1/auth/signup')
-        .send({
-          firstName: 'John',
-          lastName: 'Doe',
-          email: 'test@example.com',
-          organizationName: 'Test Org',
-        });
+      response = await request(app).post('/api/v1/auth/signup').send({
+        firstName: 'John',
+        lastName: 'Doe',
+        email: 'test@example.com',
+        organizationName: 'Test Org',
+      });
       expect(response.status).toBe(400);
 
       // Test empty object
-      response = await request(app)
-        .post('/api/v1/auth/signup')
-        .send({});
+      response = await request(app).post('/api/v1/auth/signup').send({});
       expect(response.status).toBe(400);
 
       // Verify no users were created

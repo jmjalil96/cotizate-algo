@@ -63,7 +63,7 @@ describe('E2E - Rate Limiting', () => {
       // Send 100 requests concurrently in batches to speed up test
       const batchSize = 10;
       const totalRequests = 100;
-      
+
       for (let batch = 0; batch < totalRequests / batchSize; batch++) {
         const promises = [];
         for (let i = 0; i < batchSize; i++) {
@@ -77,32 +77,30 @@ describe('E2E - Rate Limiting', () => {
                 email: `ratetest${index}@example.com`,
                 organizationName: `Rate Test Org ${index}`,
                 password: `RatePass${index}!`,
-              })
+              }),
           );
         }
-        
+
         const batchResponses = await Promise.all(promises);
-        
+
         // All first 100 should not be rate limited
-        batchResponses.forEach(response => {
+        batchResponses.forEach((response) => {
           expect(response.status).not.toBe(429);
         });
       }
 
       // The 101st request should be rate limited
-      const rateLimitedResponse = await request(app)
-        .post('/api/v1/auth/signup')
-        .send({
-          firstName: 'RateLimit',
-          lastName: 'Exceeded',
-          email: 'ratelimit@example.com',
-          organizationName: 'Rate Limited Org',
-          password: 'RateLimitPass123!',
-        });
+      const rateLimitedResponse = await request(app).post('/api/v1/auth/signup').send({
+        firstName: 'RateLimit',
+        lastName: 'Exceeded',
+        email: 'ratelimit@example.com',
+        organizationName: 'Rate Limited Org',
+        password: 'RateLimitPass123!',
+      });
 
       expect(rateLimitedResponse.status).toBe(429);
       expect(rateLimitedResponse.body.error.message).toContain('Too many requests');
-      
+
       // Verify we created users
       const users = await prisma.user.findMany();
       expect(users.length).toBeLessThanOrEqual(100);
@@ -110,25 +108,23 @@ describe('E2E - Rate Limiting', () => {
 
     it('should include rate limit headers in responses', async () => {
       // Send a request and check for rate limit headers
-      const response = await request(app)
-        .post('/api/v1/auth/signup')
-        .send({
-          firstName: 'Header',
-          lastName: 'Test',
-          email: 'header.test@example.com',
-          organizationName: 'Header Test Org',
-          password: 'HeaderPass123!',
-        });
+      const response = await request(app).post('/api/v1/auth/signup').send({
+        firstName: 'Header',
+        lastName: 'Test',
+        email: 'header.test@example.com',
+        organizationName: 'Header Test Org',
+        password: 'HeaderPass123!',
+      });
 
       // Check for standard rate limit headers
       expect(response.headers).toHaveProperty('ratelimit-limit');
       expect(response.headers).toHaveProperty('ratelimit-remaining');
       expect(response.headers).toHaveProperty('ratelimit-reset');
-      
+
       // Verify header values
       const limit = parseInt(response.headers['ratelimit-limit']);
       const remaining = parseInt(response.headers['ratelimit-remaining']);
-      
+
       expect(limit).toBe(100); // Global limit is 100
       expect(remaining).toBeLessThan(100); // Should have used at least 1
       expect(remaining).toBeGreaterThanOrEqual(0);
@@ -138,7 +134,7 @@ describe('E2E - Rate Limiting', () => {
       // Send 50 requests from IP 1 in batches
       const batchSize = 10;
       const requestsPerIP = 50;
-      
+
       // IP 1 requests
       for (let batch = 0; batch < requestsPerIP / batchSize; batch++) {
         const promises = [];
@@ -154,12 +150,12 @@ describe('E2E - Rate Limiting', () => {
                 email: `ip1user${index}@example.com`,
                 organizationName: `IP1 Org ${index}`,
                 password: `IP1Pass${index}!`,
-              })
+              }),
           );
         }
-        
+
         const batchResponses = await Promise.all(promises);
-        batchResponses.forEach(response => {
+        batchResponses.forEach((response) => {
           expect(response.status).not.toBe(429);
         });
       }
@@ -179,12 +175,12 @@ describe('E2E - Rate Limiting', () => {
                 email: `ip2user${index}@example.com`,
                 organizationName: `IP2 Org ${index}`,
                 password: `IP2Pass${index}!`,
-              })
+              }),
           );
         }
-        
+
         const batchResponses = await Promise.all(promises);
-        batchResponses.forEach(response => {
+        batchResponses.forEach((response) => {
           expect(response.status).not.toBe(429);
         });
       }
@@ -219,14 +215,14 @@ describe('E2E - Rate Limiting', () => {
               email: `exhaust${i}@example.com`,
               organizationName: `Exhaust Org ${i}`,
               password: `ExhaustPass${i}!`,
-            })
+            }),
         );
       }
 
       const responses = await Promise.all(promises);
-      
+
       // Find the rate limited response(s)
-      const rateLimited = responses.filter(r => r.status === 429);
+      const rateLimited = responses.filter((r) => r.status === 429);
       expect(rateLimited.length).toBeGreaterThan(0);
 
       // Check the error structure
@@ -240,20 +236,18 @@ describe('E2E - Rate Limiting', () => {
     it('should not rate limit health check endpoints', async () => {
       // Health checks should be excluded from rate limiting
       const healthPromises = [];
-      
+
       // Send 150 health check requests (more than the limit)
       for (let i = 0; i < 150; i++) {
         healthPromises.push(
-          request(app)
-            .get('/health')
-            .set('X-Forwarded-For', '10.0.0.2') // Use unique IP
+          request(app).get('/health').set('X-Forwarded-For', '10.0.0.2'), // Use unique IP
         );
       }
 
       const healthResponses = await Promise.all(healthPromises);
-      
+
       // All health checks should succeed
-      healthResponses.forEach(response => {
+      healthResponses.forEach((response) => {
         expect(response.status).toBe(200);
         expect(response.status).not.toBe(429);
       });
@@ -264,14 +258,14 @@ describe('E2E - Rate Limiting', () => {
         regularPromises.push(
           request(app)
             .get('/api/v1') // Regular API endpoint
-            .set('X-Forwarded-For', '10.0.0.2')
+            .set('X-Forwarded-For', '10.0.0.2'),
         );
       }
 
       const regularResponses = await Promise.all(regularPromises);
-      
+
       // Should have some rate limited responses
-      const rateLimited = regularResponses.filter(r => r.status === 429);
+      const rateLimited = regularResponses.filter((r) => r.status === 429);
       expect(rateLimited.length).toBeGreaterThan(0);
     });
   });

@@ -1,4 +1,4 @@
-import { AuthService } from '@/modules/auth/services/auth.service';
+import { SignupService } from '@/modules/auth/services/signup.service';
 import { prisma } from '@/core/database/prisma.client';
 import { hashPassword } from '@/modules/auth/utils/password.utils';
 import { generateVerificationToken } from '@/modules/auth/utils/token.utils';
@@ -44,11 +44,11 @@ jest.mock('@/modules/shared/services/audit.service', () => ({
   },
 }));
 
-describe('AuthService - Signup Transaction Tests', () => {
-  let authService: AuthService;
-  
+describe('SignupService - Signup Transaction Tests', () => {
+  let signupService: SignupService;
+
   beforeEach(() => {
-    authService = new AuthService();
+    signupService = new SignupService();
     jest.clearAllMocks();
   });
 
@@ -111,7 +111,7 @@ describe('AuthService - Signup Transaction Tests', () => {
       (sendVerificationEmail as jest.Mock).mockResolvedValue(undefined);
 
       // Act
-      await authService.signup(signupData);
+      await signupService.signup(signupData);
 
       // Assert
       // Verify email was sent with correct parameters
@@ -120,7 +120,7 @@ describe('AuthService - Signup Transaction Tests', () => {
           email: signupData.email,
           firstName: signupData.firstName,
         },
-        mockVerificationToken
+        mockVerificationToken,
       );
       expect(sendVerificationEmail).toHaveBeenCalledTimes(1);
 
@@ -179,7 +179,9 @@ describe('AuthService - Signup Transaction Tests', () => {
       });
 
       // Act & Assert
-      await expect(authService.signup(signupData)).rejects.toThrow('Database constraint violation');
+      await expect(signupService.signup(signupData)).rejects.toThrow(
+        'Database constraint violation',
+      );
 
       // Verify transaction was attempted
       expect(prisma.$transaction).toHaveBeenCalled();
@@ -244,7 +246,7 @@ describe('AuthService - Signup Transaction Tests', () => {
       });
 
       // Act & Assert
-      await expect(authService.signup(signupData)).rejects.toThrow('Profile creation failed');
+      await expect(signupService.signup(signupData)).rejects.toThrow('Profile creation failed');
 
       // Verify no email was sent
       expect(sendVerificationEmail).not.toHaveBeenCalled();

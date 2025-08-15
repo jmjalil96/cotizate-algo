@@ -1,4 +1,4 @@
-import { AuthService } from '@/modules/auth/services/auth.service';
+import { VerificationService } from '@/modules/auth/services/verification.service';
 import { prisma } from '@/core/database/prisma.client';
 import { sessionService } from '@/modules/auth/services/session.service';
 import { generateAccessToken } from '@/modules/auth/utils/jwt.utils';
@@ -31,11 +31,11 @@ jest.mock('@/modules/shared/services/audit.service', () => ({
   },
 }));
 
-describe('AuthService - Verify Token Tests', () => {
-  let authService: AuthService;
-  
+describe('VerificationService - Verify Token Tests', () => {
+  let verificationService: VerificationService;
+
   beforeEach(() => {
-    authService = new AuthService();
+    verificationService = new VerificationService();
     jest.clearAllMocks();
   });
 
@@ -131,7 +131,7 @@ describe('AuthService - Verify Token Tests', () => {
       (generateAccessToken as jest.Mock).mockReturnValue(mockAccessToken);
 
       // Act
-      const result = await authService.verify(verifyToken, ipAddress, userAgent);
+      const result = await verificationService.verify(verifyToken, ipAddress, userAgent);
 
       // Assert - Verify refresh token creation
       expect(sessionService.createRefreshToken).toHaveBeenCalledWith({
@@ -238,7 +238,7 @@ describe('AuthService - Verify Token Tests', () => {
       (generateAccessToken as jest.Mock).mockReturnValue(mockAccessToken);
 
       // Act
-      const result = await authService.verify(verifyToken, ipAddress, userAgent);
+      const result = await verificationService.verify(verifyToken, ipAddress, userAgent);
 
       // Assert - Verify generateAccessToken was called with correct parameters
       expect(generateAccessToken).toHaveBeenCalledWith({

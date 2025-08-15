@@ -1,210 +1,147 @@
 import { prisma } from '@/core/database/prisma.client';
-import { ConflictError, NotFoundError, UnauthorizedError } from '@/common/exceptions/app.error';
-import { hashPassword, addPasswordToHistory } from '../utils/password.utils';
-import { generateVerificationToken } from '../utils/token.utils';
+import { NotFoundError, UnauthorizedError } from '@/common/exceptions/app.error';
+import { verifyPassword } from '../utils/password.utils';
 import { generateAccessToken } from '../utils/jwt.utils';
-import { generateOrganizationSlug } from '@/modules/shared/utils/slug.utils';
-import { sendVerificationEmail } from '@/modules/shared/utils/email.utils';
 import { auditService } from '@/modules/shared/services/audit.service';
 import { sessionService } from './session.service';
-import type { SignupInput, EmailVerificationInput } from '../validators/auth.schema';
+import type { LoginInput } from '../validators/auth.schema';
+
+// Security constants
+const MAX_LOGIN_ATTEMPTS = 5;
+const LOCKOUT_DURATION = 15 * 60 * 1000; // 15 minutes
+const LOGIN_WINDOW = 15 * 60 * 1000; // Reset counter after 15 min of no attempts
 
 export class AuthService {
-  async signup(data: SignupInput, ipAddress?: string) {
-    // Check if email already exists
-    const existingUser = await prisma.user.findUnique({
+  /**
+   * Authenticate user with email and password
+   * Creates session and returns JWT tokens
+   */
+  async login(data: LoginInput, ipAddress?: string, userAgent?: string) {
+    // Find user with all necessary relations
+    const user = await prisma.user.findUnique({
       where: { email: data.email },
-    });
-
-    if (existingUser) {
-      throw new ConflictError('Email already registered');
-    }
-
-    // Check if organization name already exists
-    const existingOrgByName = await prisma.organization.findUnique({
-      where: { name: data.organizationName },
-    });
-
-    if (existingOrgByName) {
-      throw new ConflictError('Organization name already taken');
-    }
-
-    // Generate organization slug
-    const organizationSlug = await generateOrganizationSlug(data.organizationName);
-
-    // Hash password
-    const passwordHash = await hashPassword(data.password);
-
-    // Generate verification token
-    const verificationToken = generateVerificationToken();
-
-    // Create everything in a transaction
-    const result = await prisma.$transaction(async (tx) => {
-      // Create user
-      const user = await tx.user.create({
-        data: {
-          email: data.email,
-          passwordHash,
-          status: 'PENDING',
-        },
-      });
-
-      // Create profile
-      await tx.profile.create({
-        data: {
-          userId: user.id,
-          firstName: data.firstName,
-          lastName: data.lastName,
-        },
-      });
-
-      // Create organization
-      const organization = await tx.organization.create({
-        data: {
-          name: data.organizationName,
-          slug: organizationSlug,
-        },
-      });
-
-      // Find the global owner role
-      const ownerRole = await tx.role.findFirst({
-        where: {
-          name: 'owner',
-          organizationId: null, // Global role
-        },
-      });
-
-      if (!ownerRole) {
-        throw new NotFoundError('Owner role not found. Please run database seed.');
-      }
-
-      // Create organization user with owner role
-      await tx.organizationUser.create({
-        data: {
-          userId: user.id,
-          organizationId: organization.id,
-          roleId: ownerRole.id,
-        },
-      });
-
-      // Create email verification record
-      await tx.emailVerification.create({
-        data: {
-          userId: user.id,
-          email: data.email,
-          token: verificationToken,
-          expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000), // 24 hours
-        },
-      });
-
-      // Add password to history
-      await addPasswordToHistory(user.id, passwordHash, tx);
-
-      // Create audit log for user signup
-      await auditService.logAction({
-        userId: user.id,
-        action: 'user.signup',
-        resource: 'user',
-        resourceId: user.id,
-        details: {
-          email: data.email,
-          firstName: data.firstName,
-          lastName: data.lastName,
-        },
-        ipAddress,
-      }, tx);
-
-      // Create audit log for organization creation
-      await auditService.logAction({
-        userId: user.id,
-        organizationId: organization.id,
-        action: 'organization.create',
-        resource: 'organization',
-        resourceId: organization.id,
-        details: {
-          name: data.organizationName,
-          slug: organizationSlug,
-        },
-        ipAddress,
-      }, tx);
-
-      return {
-        user,
-        organization,
-      };
-    });
-
-    // Send verification email (outside transaction)
-    await sendVerificationEmail(
-      {
-        email: data.email,
-        firstName: data.firstName,
-      },
-      verificationToken
-    );
-
-    return {
-      message: 'Account created successfully. Please check your email to verify your account.',
-      user: {
-        id: result.user.id,
-        email: result.user.email,
-      },
-      organization: {
-        id: result.organization.id,
-        name: result.organization.name,
-        slug: result.organization.slug,
-      },
-    };
-  }
-
-  async verify(token: string, ipAddress?: string, userAgent?: string) {
-    // Find the email verification token
-    const emailVerification = await prisma.emailVerification.findUnique({
-      where: { token },
       include: {
-        user: {
+        profile: true,
+        organizationUsers: {
           include: {
-            profile: true,
-            organizationUsers: {
-              include: {
-                organization: true,
-              },
-            },
+            organization: true,
+            role: true,
           },
         },
       },
     });
 
-    if (!emailVerification) {
-      throw new NotFoundError('Invalid or expired verification token');
+    // Generic error for invalid credentials (prevents user enumeration)
+    const invalidCredentialsError = new UnauthorizedError('Invalid credentials');
+
+    // If user doesn't exist, throw generic error
+    if (!user) {
+      // Log the failed attempt for security monitoring
+      await auditService.logAction({
+        action: 'auth.login.failed',
+        resource: 'auth',
+        details: {
+          email: data.email,
+          reason: 'user_not_found',
+        },
+        ipAddress,
+      });
+      throw invalidCredentialsError;
     }
 
-    // Check if token is expired
-    if (emailVerification.expiresAt < new Date()) {
-      throw new UnauthorizedError('Verification token has expired');
+    // Check if account is locked
+    if (user.lockedUntil && user.lockedUntil > new Date()) {
+      const remainingTime = Math.ceil((user.lockedUntil.getTime() - Date.now()) / 1000 / 60);
+      throw new UnauthorizedError(
+        `Account temporarily locked. Please try again in ${remainingTime} minutes.`,
+      );
     }
 
-    const { user } = emailVerification;
+    // Check if account is active
+    if (user.status !== 'ACTIVE') {
+      // Log the failed attempt
+      await auditService.logAction({
+        userId: user.id,
+        action: 'auth.login.failed',
+        resource: 'auth',
+        details: {
+          reason: 'account_not_active',
+          status: user.status,
+        },
+        ipAddress,
+      });
 
-    // Get the user's organization (first one, since they just signed up)
-    const organizationUser = user.organizationUsers[0];
-    if (!organizationUser) {
-      throw new NotFoundError('Organization not found');
+      if (user.status === 'PENDING') {
+        throw new UnauthorizedError('Please verify your email before logging in');
+      } else {
+        throw new UnauthorizedError('Account is not active');
+      }
     }
 
-    // Start transaction
-    const result = await prisma.$transaction(async (tx) => {
-      // Update user status to ACTIVE and set emailVerified
-      const updatedUser = await tx.user.update({
+    // Verify password
+    const isValidPassword = await verifyPassword(data.password, user.passwordHash);
+
+    if (!isValidPassword) {
+      // Update failed login count
+      const updatedUser = await prisma.user.update({
         where: { id: user.id },
         data: {
-          status: 'ACTIVE',
-          emailVerified: true,
-          emailVerifiedAt: new Date(),
+          failedLoginCount: user.failedLoginCount + 1,
+          // Lock account if max attempts reached
+          ...(user.failedLoginCount + 1 >= MAX_LOGIN_ATTEMPTS && {
+            lockedUntil: new Date(Date.now() + LOCKOUT_DURATION),
+          }),
         },
       });
 
-      // Create session
+      // Log failed attempt
+      await auditService.logAction({
+        userId: user.id,
+        action: 'auth.login.failed',
+        resource: 'auth',
+        details: {
+          attempt: updatedUser.failedLoginCount,
+          locked: updatedUser.failedLoginCount >= MAX_LOGIN_ATTEMPTS,
+        },
+        ipAddress,
+      });
+
+      // If account just got locked, log that too
+      if (updatedUser.failedLoginCount >= MAX_LOGIN_ATTEMPTS) {
+        await auditService.logAction({
+          userId: user.id,
+          action: 'auth.login.locked',
+          resource: 'auth',
+          details: {
+            lockedUntil: updatedUser.lockedUntil,
+          },
+          ipAddress,
+        });
+      }
+
+      throw invalidCredentialsError;
+    }
+
+    // Get the user's first organization (for now)
+    const organizationUser = user.organizationUsers[0];
+    if (!organizationUser) {
+      throw new NotFoundError('No organization associated with this account');
+    }
+
+    // Successful login - reset failed attempts and update login info
+    const result = await prisma.$transaction(async (tx) => {
+      // Update user login info
+      const updatedUser = await tx.user.update({
+        where: { id: user.id },
+        data: {
+          failedLoginCount: 0,
+          lockedUntil: null,
+          lastLoginAt: new Date(),
+          lastLoginIp: ipAddress,
+        },
+      });
+
+      // Create session (master record)
       const session = await sessionService.createSession({
         userId: user.id,
         ipAddress,
@@ -212,32 +149,29 @@ export class AuthService {
         tx,
       });
 
-      // Create refresh token
+      // Create refresh token linked to session
       const refreshToken = await sessionService.createRefreshToken({
         userId: user.id,
-        sessionId: session.id,
+        sessionId: session.id, // Link to session!
         ipAddress,
         userAgent,
         tx,
       });
 
-      // Delete the email verification token
-      await tx.emailVerification.delete({
-        where: { id: emailVerification.id },
-      });
-
-      // Log audit event for email verification
-      await auditService.logAction({
-        userId: user.id,
-        organizationId: organizationUser.organizationId,
-        action: 'user.email_verified',
-        resource: 'user',
-        resourceId: user.id,
-        details: {
-          email: user.email,
+      // Log successful login
+      await auditService.logAction(
+        {
+          userId: user.id,
+          organizationId: organizationUser.organizationId,
+          action: 'auth.login.success',
+          resource: 'auth',
+          details: {
+            sessionId: session.id,
+          },
+          ipAddress,
         },
-        ipAddress,
-      }, tx);
+        tx,
+      );
 
       return {
         user: updatedUser,
@@ -246,12 +180,12 @@ export class AuthService {
       };
     });
 
-    // Generate JWT access token
+    // Generate JWT access token with session ID
     const accessToken = generateAccessToken({
       userId: result.user.id,
       email: result.user.email,
       organizationId: organizationUser.organizationId,
-      sessionId: result.session.id,
+      sessionId: result.session.id, // Include session ID in JWT!
     });
 
     return {
@@ -269,6 +203,148 @@ export class AuthService {
         slug: organizationUser.organization.slug,
       },
     };
+  }
+
+  /**
+   * Refresh access token using refresh token
+   * Implements token rotation for security
+   */
+  async refresh(refreshToken: string, ipAddress?: string, userAgent?: string) {
+    // Get valid refresh token with all relations
+    const tokenData = await sessionService.getValidRefreshToken(refreshToken);
+
+    if (!tokenData) {
+      throw new UnauthorizedError('Invalid or expired refresh token');
+    }
+
+    // Get user with organization data
+    const user = await prisma.user.findUnique({
+      where: { id: tokenData.userId },
+      include: {
+        profile: true,
+        organizationUsers: {
+          include: {
+            organization: true,
+          },
+        },
+      },
+    });
+
+    if (!user) {
+      throw new NotFoundError('User not found');
+    }
+
+    if (user.status !== 'ACTIVE') {
+      throw new UnauthorizedError('Account is not active');
+    }
+
+    const organizationUser = user.organizationUsers[0];
+    if (!organizationUser) {
+      throw new NotFoundError('No organization associated with this account');
+    }
+
+    // Rotate the refresh token (create new, revoke old)
+    const newRefreshToken = await sessionService.rotateRefreshToken(
+      refreshToken,
+      tokenData.userId,
+      tokenData.sessionId,
+      tokenData.family,
+      ipAddress,
+      userAgent,
+      tokenData.deviceId || undefined,
+    );
+
+    // Generate new JWT access token with session ID from the rotated token
+    const accessToken = generateAccessToken({
+      userId: user.id,
+      email: user.email,
+      organizationId: organizationUser.organizationId,
+      sessionId: tokenData.sessionId, // Use session ID from refresh token
+    });
+
+    // Log token refresh
+    await auditService.logAction({
+      userId: user.id,
+      organizationId: organizationUser.organizationId,
+      action: 'auth.token.refresh',
+      resource: 'auth',
+      details: {
+        sessionId: tokenData.sessionId,
+      },
+      ipAddress,
+    });
+
+    return {
+      accessToken,
+      refreshToken: newRefreshToken.token,
+      user: {
+        id: user.id,
+        email: user.email,
+        firstName: user.profile?.firstName,
+        lastName: user.profile?.lastName,
+      },
+      organization: {
+        id: organizationUser.organization.id,
+        name: organizationUser.organization.name,
+        slug: organizationUser.organization.slug,
+      },
+    };
+  }
+
+  /**
+   * Handle user logout - deactivate session
+   */
+  async logout(userId: string, sessionId?: string, ipAddress?: string) {
+    await prisma.$transaction(async (tx) => {
+      if (sessionId) {
+        // Deactivate the specific session and its refresh tokens
+        await sessionService.deactivateSession(sessionId, tx);
+      } else {
+        // If no sessionId provided, deactivate all sessions
+        await sessionService.deactivateUserSessions(userId, tx);
+      }
+
+      // Log logout event
+      await auditService.logAction(
+        {
+          userId,
+          action: 'auth.logout',
+          resource: 'auth',
+          details: {
+            sessionId: sessionId || 'all',
+          },
+          ipAddress,
+        },
+        tx,
+      );
+    });
+  }
+
+  /**
+   * Logout from all devices - deactivate all sessions
+   */
+  async logoutAll(userId: string, ipAddress?: string) {
+    await prisma.$transaction(async (tx) => {
+      // Deactivate all user sessions
+      await sessionService.deactivateUserSessions(userId, tx);
+
+      // Revoke all refresh tokens
+      await sessionService.revokeUserRefreshTokens(userId, tx);
+
+      // Log logout all event
+      await auditService.logAction(
+        {
+          userId,
+          action: 'auth.logout.all',
+          resource: 'auth',
+          details: {
+            reason: 'user_initiated',
+          },
+          ipAddress,
+        },
+        tx,
+      );
+    });
   }
 }
 

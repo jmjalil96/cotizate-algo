@@ -10,9 +10,7 @@ export function getClientIp(req: Request): string {
   if (forwardedFor) {
     // X-Forwarded-For can contain multiple IPs (client, proxy1, proxy2, ...)
     // We want the first one (the original client)
-    const ips = Array.isArray(forwardedFor) 
-      ? forwardedFor[0] 
-      : forwardedFor.split(',')[0];
+    const ips = Array.isArray(forwardedFor) ? forwardedFor[0] : forwardedFor.split(',')[0];
     return ips.trim();
   }
 
@@ -46,7 +44,7 @@ export function getClientIp(req: Request): string {
 export function isPrivateIp(ip: string): boolean {
   // Remove IPv6 prefix if present
   const cleanIp = ip.replace(/^::ffff:/, '');
-  
+
   // Check for localhost
   if (cleanIp === '127.0.0.1' || cleanIp === '::1' || cleanIp === 'localhost') {
     return true;
@@ -74,7 +72,7 @@ export function isPrivateIp(ip: string): boolean {
 export function anonymizeIp(ip: string): string {
   // Remove IPv6 prefix if present
   const cleanIp = ip.replace(/^::ffff:/, '');
-  
+
   // Check if IPv4
   if (cleanIp.includes('.')) {
     const parts = cleanIp.split('.');
@@ -83,7 +81,7 @@ export function anonymizeIp(ip: string): string {
       return parts.join('.');
     }
   }
-  
+
   // Check if IPv6
   if (cleanIp.includes(':')) {
     const parts = cleanIp.split(':');
@@ -93,6 +91,6 @@ export function anonymizeIp(ip: string): string {
     }
     return parts.join(':');
   }
-  
+
   return cleanIp;
 }
